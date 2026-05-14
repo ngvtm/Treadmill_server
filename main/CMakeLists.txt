@@ -10,10 +10,12 @@ idf_component_register(
         "gatt_svr.c"
         "treadmill/treadmill.c"     # <-- thêm dòng này
         "motor/motor.c"
+        "ir_safety/ir_safety.c"
     INCLUDE_DIRS
         "."
         "treadmill"                 # <-- thêm dòng này để #include "treadmill.h" hoạt động
         "motor"
+        "ir_safety"
     REQUIRES
         driver
         esp_timer

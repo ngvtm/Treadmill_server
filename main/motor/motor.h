@@ -14,9 +14,9 @@ extern "C" {
  * Chiều: FORWARD mặc định cho băng chạy
  */
 
-#define MOTOR_INA_PIN     GPIO_NUM_12
-#define MOTOR_INB_PIN     GPIO_NUM_14
-#define MOTOR_ENA_PIN     GPIO_NUM_27
+#define MOTOR_INA_PIN  GPIO_NUM_18   
+#define MOTOR_INB_PIN  GPIO_NUM_19   
+#define MOTOR_ENA_PIN  GPIO_NUM_5 
 
 #define MOTOR_SPEED_MIN   0
 #define MOTOR_SPEED_MAX   10

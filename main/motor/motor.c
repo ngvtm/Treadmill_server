@@ -5,16 +5,13 @@
 
 #define TAG "MOTOR"
 
-static uint8_t    s_speed     = 0;
+static uint8_t     s_speed     = 0;
 static motor_dir_t s_direction = MOTOR_DIR_FORWARD;
 
-/* Map tốc độ bậc 0–10 sang duty cycle 10-bit (0–1023) */
 static uint32_t speed_to_duty(uint8_t speed)
 {
     if (speed == 0) return 0;
     if (speed > MOTOR_SPEED_MAX) speed = MOTOR_SPEED_MAX;
-    /* Bậc 1 = 20% duty tối thiểu để motor quay được,
-     * Bậc 10 = 100% duty */
     uint32_t duty_min = (uint32_t)(0.20f * 1023);
     uint32_t duty_max = 1023;
     return duty_min + (duty_max - duty_min) * speed / MOTOR_SPEED_MAX;
@@ -22,7 +19,6 @@ static uint32_t speed_to_duty(uint8_t speed)
 
 void motor_init(void)
 {
-    /* ---- GPIO INA, INB ---- */
     gpio_config_t io_conf = {
         .mode         = GPIO_MODE_OUTPUT,
         .pull_up_en   = GPIO_PULLUP_DISABLE,
@@ -33,11 +29,9 @@ void motor_init(void)
     };
     gpio_config(&io_conf);
 
-    /* Mặc định: phanh (cả 2 LOW) */
     gpio_set_level(MOTOR_INA_PIN, 0);
     gpio_set_level(MOTOR_INB_PIN, 0);
 
-    /* ---- LEDC PWM cho ENA ---- */
     ledc_timer_config_t timer_conf = {
         .speed_mode      = MOTOR_LEDC_MODE,
         .timer_num       = MOTOR_LEDC_TIMER,
@@ -89,8 +83,14 @@ void motor_set_direction(motor_dir_t dir)
 void motor_set_speed(uint8_t speed)
 {
     if (speed > MOTOR_SPEED_MAX) speed = MOTOR_SPEED_MAX;
-    s_speed = speed;
 
+    /* FIX: speed=0 → gọi motor_stop() để brake đúng cách, không chỉ tắt PWM */
+    if (speed == 0) {
+        motor_stop();
+        return;
+    }
+
+    s_speed = speed;
     uint32_t duty = speed_to_duty(speed);
     ledc_set_duty(MOTOR_LEDC_MODE, MOTOR_LEDC_CHANNEL, duty);
     ledc_update_duty(MOTOR_LEDC_MODE, MOTOR_LEDC_CHANNEL);
@@ -102,7 +102,6 @@ void motor_set_speed(uint8_t speed)
 
 void motor_stop(void)
 {
-    /* Hard brake: tắt PWM + brake direction */
     ledc_set_duty(MOTOR_LEDC_MODE, MOTOR_LEDC_CHANNEL, 0);
     ledc_update_duty(MOTOR_LEDC_MODE, MOTOR_LEDC_CHANNEL);
     motor_set_direction(MOTOR_DIR_BRAKE);
@@ -112,7 +111,6 @@ void motor_stop(void)
 
 void motor_coast(void)
 {
-    /* Dừng tự do: tắt PWM, thả chiều */
     ledc_set_duty(MOTOR_LEDC_MODE, MOTOR_LEDC_CHANNEL, 0);
     ledc_update_duty(MOTOR_LEDC_MODE, MOTOR_LEDC_CHANNEL);
     gpio_set_level(MOTOR_INA_PIN, 0);

@@ -1,15 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *  http://www.apache.org/licenses/LICENSE-2.0
- */
-
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -19,23 +7,21 @@
 #include "services/gatt/ble_svc_gatt.h"
 #include "bleprph.h"
 #include "services/ans/ble_svc_ans.h"
-#include "treadmill/treadmill.h"   /* <-- Module treadmill */
+#include "treadmill/treadmill.h"
+#include "ir_safety/ir_safety.h"
 
-/*** Maximum number of characteristics with the notify flag ***/
 #define MAX_NOTIFY 5
 
 static const ble_uuid128_t gatt_svr_svc_uuid =
     BLE_UUID128_INIT(0x2d, 0x71, 0xa2, 0x59, 0xb4, 0x58, 0xc8, 0x12,
                      0x99, 0x99, 0x43, 0x95, 0x12, 0x2f, 0x46, 0x59);
 
-/* A characteristic that can be subscribed to */
 static uint8_t  gatt_svr_chr_val;
 static uint16_t gatt_svr_chr_val_handle;
 static const ble_uuid128_t gatt_svr_chr_uuid =
     BLE_UUID128_INIT(0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11,
                      0x22, 0x22, 0x22, 0x22, 0x33, 0x33, 0x33, 0x33);
 
-/* A custom descriptor */
 static uint8_t gatt_svr_dsc_val;
 static const ble_uuid128_t gatt_svr_dsc_uuid =
     BLE_UUID128_INIT(0x01, 0x01, 0x01, 0x01, 0x12, 0x12, 0x12, 0x12,
@@ -46,40 +32,30 @@ static int gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
 
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
-        /*** Service ***/
         .type            = BLE_GATT_SVC_TYPE_PRIMARY,
         .uuid            = &gatt_svr_svc_uuid.u,
         .characteristics = (struct ble_gatt_chr_def[])
         { {
-            .uuid      = &gatt_svr_chr_uuid.u,
-            .access_cb = gatt_svc_access,
-#if CONFIG_EXAMPLE_ENCRYPTION
-            .flags     = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE |
-                         BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
-                         BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_INDICATE,
-#else
-            .flags     = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE |
-                         BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_INDICATE,
-#endif
+            .uuid        = &gatt_svr_chr_uuid.u,
+            .access_cb   = gatt_svc_access,
+            /* FIX: bỏ _ENC flags vì không dùng encryption nữa */
+            .flags       = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE |
+                           BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_INDICATE,
             .val_handle  = &gatt_svr_chr_val_handle,
             .descriptors = (struct ble_gatt_dsc_def[])
             { {
                 .uuid      = &gatt_svr_dsc_uuid.u,
-#if CONFIG_EXAMPLE_ENCRYPTION
-                .att_flags = BLE_ATT_F_READ | BLE_ATT_F_READ_ENC,
-#else
                 .att_flags = BLE_ATT_F_READ,
-#endif
                 .access_cb = gatt_svc_access,
             }, {
-                0, /* No more descriptors */
+                0,
             } },
         }, {
-            0, /* No more characteristics */
+            0,
         } },
     },
     {
-        0, /* No more services */
+        0,
     },
 };
 
@@ -144,7 +120,6 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
                                 sizeof(gatt_svr_chr_val),
                                 &gatt_svr_chr_val, NULL);
             if (rc == 0) {
-                /* Chuyển command nhận được tới module treadmill */
                 treadmill_handle_command(gatt_svr_chr_val);
             }
             ble_gatts_chr_updated(attr_handle);
@@ -166,7 +141,7 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
         if (ble_uuid_cmp(uuid, &gatt_svr_dsc_uuid.u) == 0) {
             rc = os_mbuf_append(ctxt->om,
                                 &gatt_svr_dsc_val,
-                                sizeof(gatt_svr_chr_val));
+                                sizeof(gatt_svr_dsc_val)); /* FIX: đúng variable */
             return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
         }
         goto unknown;
@@ -212,12 +187,28 @@ gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
     }
 }
 
-int
-gatt_svr_init(void)
+static void safety_monitor_task(void *arg)
+{
+    while (1) {
+        if (treadmill_is_running()) {
+            ir_zone_t zone = ir_safety_get_zone();
+            if (zone == IR_ZONE_DANGER) {
+                ESP_LOGW("SAFETY", "🚨 DỪNG KHẨN CẤP — Trẻ ra vùng nguy hiểm!");
+                treadmill_handle_command(TREADMILL_CMD_OFF);
+            } else if (zone == IR_ZONE_NONE) {
+                ESP_LOGW("SAFETY", "⚠️ DỪNG — Không phát hiện người trên băng!");
+                treadmill_handle_command(TREADMILL_CMD_OFF);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(100)); /* Check mỗi 100ms */
+    }
+}
+
+int gatt_svr_init(void)
 {
     int rc;
 
-    /* Khởi tạo module treadmill trước khi đăng ký GATT */
+    ir_safety_init();
     treadmill_init();
 
     ble_svc_gap_init();
@@ -234,8 +225,10 @@ gatt_svr_init(void)
         return rc;
     }
 
-    /* Setting a value for the read-only descriptor */
     gatt_svr_dsc_val = 0x99;
+
+    xTaskCreate(safety_monitor_task, "safety_mon", 2048, NULL, 12, NULL);
+    ESP_LOGI("GATT", "Safety monitor started");
 
     return 0;
 }
