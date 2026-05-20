@@ -1,7 +1,10 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "host/ble_hs.h"
+#include "host/ble_hs_mbuf.h"
 #include "host/ble_uuid.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
@@ -11,6 +14,26 @@
 #include "ir_safety/ir_safety.h"
 
 #define MAX_NOTIFY 5
+#define TREADMILL_MSG_STATUS 0x80
+
+typedef enum {
+    TREADMILL_ALERT_NONE = 0,
+    TREADMILL_ALERT_WARNING_1,
+    TREADMILL_ALERT_WARNING_2,
+    TREADMILL_ALERT_DANGER,
+    TREADMILL_ALERT_NO_PERSON,
+    TREADMILL_ALERT_CMD_REJECTED,
+} treadmill_alert_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t type;
+    uint8_t running;
+    uint8_t speed;
+    uint8_t requested_speed;
+    uint8_t safety_limited;
+    uint8_t zone;
+    uint8_t alert;
+} treadmill_status_msg_t;
 
 static const ble_uuid128_t gatt_svr_svc_uuid =
     BLE_UUID128_INIT(0x2d, 0x71, 0xa2, 0x59, 0xb4, 0x58, 0xc8, 0x12,
@@ -18,6 +41,10 @@ static const ble_uuid128_t gatt_svr_svc_uuid =
 
 static uint8_t  gatt_svr_chr_val;
 static uint16_t gatt_svr_chr_val_handle;
+static uint16_t gatt_svr_conn_handle = BLE_HS_CONN_HANDLE_NONE;
+static treadmill_status_msg_t gatt_svr_status_val = {
+    .type = TREADMILL_MSG_STATUS,
+};
 static const ble_uuid128_t gatt_svr_chr_uuid =
     BLE_UUID128_INIT(0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11,
                      0x22, 0x22, 0x22, 0x22, 0x33, 0x33, 0x33, 0x33);
@@ -99,8 +126,8 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
         uuid = ctxt->chr->uuid;
         if (attr_handle == gatt_svr_chr_val_handle) {
             rc = os_mbuf_append(ctxt->om,
-                                &gatt_svr_chr_val,
-                                sizeof(gatt_svr_chr_val));
+                                &gatt_svr_status_val,
+                                sizeof(gatt_svr_status_val));
             return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
         }
         goto unknown;
@@ -120,11 +147,17 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
                                 sizeof(gatt_svr_chr_val),
                                 &gatt_svr_chr_val, NULL);
             if (rc == 0) {
+                ir_zone_t before_zone = ir_safety_get_zone();
                 treadmill_handle_command(gatt_svr_chr_val);
+                if (gatt_svr_chr_val == TREADMILL_CMD_ON &&
+                    !treadmill_is_running()) {
+                    gatt_svr_notify_status(TREADMILL_ALERT_CMD_REJECTED,
+                                           before_zone);
+                } else {
+                    gatt_svr_notify_status(TREADMILL_ALERT_NONE,
+                                           ir_safety_get_zone());
+                }
             }
-            ble_gatts_chr_updated(attr_handle);
-            MODLOG_DFLT(INFO, "Notification/Indication scheduled for "
-                              "all subscribed peers.\n");
             return rc;
         }
         goto unknown;
@@ -158,6 +191,48 @@ unknown:
     return BLE_ATT_ERR_UNLIKELY;
 }
 
+void gatt_svr_set_connection(uint16_t conn_handle)
+{
+    gatt_svr_conn_handle = conn_handle;
+}
+
+void gatt_svr_clear_connection(uint16_t conn_handle)
+{
+    if (gatt_svr_conn_handle == conn_handle) {
+        gatt_svr_conn_handle = BLE_HS_CONN_HANDLE_NONE;
+    }
+}
+
+void gatt_svr_notify_status(uint8_t alert, uint8_t zone)
+{
+    gatt_svr_status_val.type = TREADMILL_MSG_STATUS;
+    gatt_svr_status_val.running = treadmill_is_running() ? 1 : 0;
+    gatt_svr_status_val.speed = treadmill_get_speed();
+    gatt_svr_status_val.requested_speed = treadmill_get_requested_speed();
+    gatt_svr_status_val.safety_limited = treadmill_is_safety_limited() ? 1 : 0;
+    gatt_svr_status_val.zone = zone;
+    gatt_svr_status_val.alert = alert;
+
+    if (gatt_svr_conn_handle == BLE_HS_CONN_HANDLE_NONE ||
+        gatt_svr_chr_val_handle == 0) {
+        return;
+    }
+
+    struct os_mbuf *om = ble_hs_mbuf_from_flat(&gatt_svr_status_val,
+                                               sizeof(gatt_svr_status_val));
+    if (om == NULL) {
+        MODLOG_DFLT(ERROR, "status notify mbuf alloc failed\n");
+        return;
+    }
+
+    int rc = ble_gatts_notify_custom(gatt_svr_conn_handle,
+                                     gatt_svr_chr_val_handle,
+                                     om);
+    if (rc != 0) {
+        MODLOG_DFLT(WARN, "status notify failed rc=%d\n", rc);
+    }
+}
+
 void
 gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 {
@@ -189,18 +264,41 @@ gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 
 static void safety_monitor_task(void *arg)
 {
+    ir_zone_t last_zone = IR_ZONE_NONE;
+
     while (1) {
         if (treadmill_is_running()) {
             ir_zone_t zone = ir_safety_get_zone();
-            if (zone == IR_ZONE_DANGER) {
-                ESP_LOGW("SAFETY", "🚨 DỪNG KHẨN CẤP — Trẻ ra vùng nguy hiểm!");
-                treadmill_handle_command(TREADMILL_CMD_OFF);
-            } else if (zone == IR_ZONE_NONE) {
-                ESP_LOGW("SAFETY", "⚠️ DỪNG — Không phát hiện người trên băng!");
-                treadmill_handle_command(TREADMILL_CMD_OFF);
+            treadmill_handle_safety_zone(zone);
+
+            if (zone != last_zone) {
+                uint8_t alert = TREADMILL_ALERT_NONE;
+                switch (zone) {
+                case IR_ZONE_WARNING_1:
+                    alert = TREADMILL_ALERT_WARNING_1;
+                    break;
+                case IR_ZONE_WARNING_2:
+                    alert = TREADMILL_ALERT_WARNING_2;
+                    break;
+                case IR_ZONE_DANGER:
+                    alert = TREADMILL_ALERT_DANGER;
+                    break;
+                case IR_ZONE_NONE:
+                    alert = TREADMILL_ALERT_NO_PERSON;
+                    break;
+                case IR_ZONE_SAFE:
+                default:
+                    alert = TREADMILL_ALERT_NONE;
+                    break;
+                }
+                gatt_svr_notify_status(alert, zone);
+                last_zone = zone;
             }
+        } else {
+            last_zone = IR_ZONE_NONE;
         }
-        vTaskDelay(pdMS_TO_TICKS(100)); /* Check mỗi 100ms */
+
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 

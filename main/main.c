@@ -7,6 +7,8 @@
 #include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "bleprph.h"
+#include "treadmill/treadmill.h"
+
 
 static const char *tag = "NimBLE_BLE_PRPH";
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
@@ -91,6 +93,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
             rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
             assert(rc == 0);
             bleprph_print_conn_desc(&desc);
+            gatt_svr_set_connection(event->connect.conn_handle);
             /* Không gọi security_initiate — không dùng encryption */
         } else {
             bleprph_advertise();
@@ -100,6 +103,8 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_DISCONNECT:
         MODLOG_DFLT(INFO, "disconnect; reason=%d\n",
                     event->disconnect.reason);
+        treadmill_handle_command(TREADMILL_CMD_OFF);
+        gatt_svr_clear_connection(event->disconnect.conn.conn_handle);
         bleprph_advertise();
         return 0;
 

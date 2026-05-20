@@ -41,6 +41,9 @@ struct ble_gatt_register_ctxt;
 
 void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
 int gatt_svr_init(void);
+void gatt_svr_set_connection(uint16_t conn_handle);
+void gatt_svr_clear_connection(uint16_t conn_handle);
+void gatt_svr_notify_status(uint8_t alert, uint8_t zone);
 
 #ifdef __cplusplus
 }

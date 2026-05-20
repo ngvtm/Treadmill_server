@@ -6,23 +6,21 @@ extern "C" {
 #endif
 
 /*
- * 6 IR sensor V183 — active LOW (detect = mức 0)
- * Bố cục từ đầu → cuối băng chạy:
+ * 6 IR sensors, active LOW (detect = 0), arranged from front to rear:
  *
- *   [IR1-14] [IR2-27] [IR3-26] | [IR4-25] [IR5-23] [IR6-32]
- *   |------- SAFE ZONE --------|-------- DANGER ZONE --------|
- *   |        (1/3 đầu)         |         (2/3 sau)           |
- *
- * Logic:
- *   SAFE   → trẻ đứng ở 1/3 đầu, cho phép chạy
- *   DANGER → trẻ lệch ra 2/3 sau, dừng khẩn cấp
- *   NONE   → không detect ai, không cho chạy
+ *   IR1, IR2 -> SAFE
+ *   IR3      -> WARNING_1: warn only
+ *   IR4      -> WARNING_2: reduce speed
+ *   IR5, IR6 -> DANGER: controlled fast stop
+ *   NONE     -> no person detected
  */
 
 typedef enum {
-    IR_ZONE_NONE   = 0,
-    IR_ZONE_SAFE   = 1,
-    IR_ZONE_DANGER = 2,
+    IR_ZONE_NONE = 0,
+    IR_ZONE_SAFE,
+    IR_ZONE_WARNING_1,
+    IR_ZONE_WARNING_2,
+    IR_ZONE_DANGER,
 } ir_zone_t;
 
 void ir_safety_init(void);
