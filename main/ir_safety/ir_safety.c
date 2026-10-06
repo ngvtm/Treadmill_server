@@ -10,6 +10,13 @@
 #define IR4_GPIO 25
 #define IR5_GPIO 23
 #define IR6_GPIO 32
+#define IR_DETECT_LEVEL 0
+#define IR5_ENABLED 0
+
+static bool ir_sensor_detected(gpio_num_t gpio)
+{
+    return gpio_get_level(gpio) == IR_DETECT_LEVEL;
+}
 
 void ir_safety_init(void)
 {
@@ -24,24 +31,26 @@ void ir_safety_init(void)
     };
     gpio_config(&cfg);
 
-    ESP_LOGI(TAG, "Initialized: SAFE={14,27}, WARNING_1={26}, WARNING_2={25}, DANGER={23,32}");
+    ESP_LOGI(TAG, "Initialized: active LOW, SAFE={14,27}, WARNING_1={26}, WARNING_2={25}, DANGER={32}, IR5/GPIO23=%s",
+             IR5_ENABLED ? "enabled" : "disabled");
 }
 
 ir_zone_t ir_safety_get_zone(void)
 {
-    if (gpio_get_level(IR5_GPIO) == 0 || gpio_get_level(IR6_GPIO) == 0) {
+    if ((IR5_ENABLED && ir_sensor_detected(IR5_GPIO)) ||
+        ir_sensor_detected(IR6_GPIO)) {
         return IR_ZONE_DANGER;
     }
 
-    if (gpio_get_level(IR4_GPIO) == 0) {
+    if (ir_sensor_detected(IR4_GPIO)) {
         return IR_ZONE_WARNING_2;
     }
 
-    if (gpio_get_level(IR3_GPIO) == 0) {
+    if (ir_sensor_detected(IR3_GPIO)) {
         return IR_ZONE_WARNING_1;
     }
 
-    if (gpio_get_level(IR1_GPIO) == 0 || gpio_get_level(IR2_GPIO) == 0) {
+    if (ir_sensor_detected(IR1_GPIO) || ir_sensor_detected(IR2_GPIO)) {
         return IR_ZONE_SAFE;
     }
 
@@ -51,4 +60,16 @@ ir_zone_t ir_safety_get_zone(void)
 bool ir_safety_is_safe(void)
 {
     return ir_safety_get_zone() == IR_ZONE_SAFE;
+}
+
+void ir_safety_log_levels(void)
+{
+    ESP_LOGI(TAG, "GPIO levels: 14=%d 27=%d 26=%d 25=%d 23=%d 32=%d detect_level=%d",
+             gpio_get_level(IR1_GPIO),
+             gpio_get_level(IR2_GPIO),
+             gpio_get_level(IR3_GPIO),
+             gpio_get_level(IR4_GPIO),
+             gpio_get_level(IR5_GPIO),
+             gpio_get_level(IR6_GPIO),
+             IR_DETECT_LEVEL);
 }

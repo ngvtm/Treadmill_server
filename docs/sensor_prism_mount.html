@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gờ lăng trụ tam giác 20° — mount sensor dọc hông băng</title>
+<style>
+  :root {
+    --surface-1:#fcfcfb; --page:#f9f9f7; --text-primary:#0b0b0b; --text-secondary:#52514e;
+    --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+    --good:#0ca30c; --warning:#eda100; --critical:#d03b3b;
+    --belt:#d9dde2; --frame:#8a8f96; --sensor:#2a78d6; --beam:#3987e5; --child:#4a3aa7;
+    --face-top:#b9bec6; --face-side:#9aa0a8; --face-end:#7f858d; --slot:#20242a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1:#1a1a19; --page:#0d0d0d; --text-primary:#fff; --text-secondary:#c3c2b7;
+      --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+      --good:#0ca30c; --warning:#eda100; --critical:#d03b3b;
+      --belt:#33373d; --frame:#6a6f76; --sensor:#3987e5; --beam:#3987e5; --child:#9085e9;
+      --face-top:#5c626a; --face-side:#4a4f56; --face-end:#3b4046; --slot:#0a0c0e;
+    }
+  }
+  body { margin:0; padding:24px; background:var(--page); color:var(--text-primary);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.5; }
+  .wrap { max-width:1000px; margin:0 auto; }
+  h1 { font-size:21px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:0 0 6px; }
+  p { color:var(--text-secondary); font-size:13.5px; margin:4px 0; }
+  .card { background:var(--surface-1); border-radius:10px; padding:16px;
+    border:1px solid rgba(11,11,11,0.10); margin:14px 0; }
+  @media (prefers-color-scheme: dark) { .card { border-color:rgba(255,255,255,0.12); } }
+  svg { width:100%; height:auto; display:block; margin:6px 0; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; margin:8px 0; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; color:var(--text-secondary); }
+  .sw { width:13px; height:13px; border-radius:3px; display:inline-block; }
+  ul { margin:6px 0 0; padding-left:18px; font-size:13px; color:var(--text-secondary); }
+  li { margin:4px 0; }
+  code { font-family:ui-monospace,Consolas,monospace; font-size:12.5px;
+    background:rgba(128,128,128,0.14); padding:1px 5px; border-radius:4px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; margin-top:8px; }
+  th,td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--grid); color:var(--text-secondary); }
+  th { color:var(--text-primary); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Gờ lăng trụ tam giác rỗng, góc nhọn 20° — mount 8 sensor dọc hông băng</h1>
+  <p>Băng 800 × 650 mm. Lăng trụ dài 800 mm chạy dọc hông băng. Mặt huyền nghiêng 20° so mặt băng, trên đó khoét 8 rãnh đặt VL53L0X. Ruột rỗng để đi dây I2C + XSHUT.</p>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--face-top)"></i> Mặt huyền (chứa rãnh sensor)</span>
+    <span><i class="sw" style="background:var(--face-side)"></i> Mặt đứng / đáy</span>
+    <span><i class="sw" style="background:var(--slot)"></i> Rãnh sensor</span>
+    <span><i class="sw" style="background:var(--beam);opacity:.45"></i> Mặt phẳng quét</span>
+    <span><i class="sw" style="background:var(--sensor)"></i> Sensor</span>
+  </div>
+
+  <div class="card">
+    <h2>A. Toàn cảnh 3D — lăng trụ dán dọc hông băng, 8 mặt phẳng quét cắt ngang</h2>
+    <div id="figIso"></div>
+    <ul id="isoNotes"></ul>
+  </div>
+
+  <div class="card">
+    <h2>B. Mặt cắt tam giác (nhìn dọc theo băng) — kích thước &amp; góc</h2>
+    <p>Đây là biên dạng bạn extrude 800 mm. Góc nhọn 20° nằm ở phía mép băng, mặt huyền hướng lên và vào trong băng.</p>
+    <div id="figProfile"></div>
+    <ul id="profNotes"></ul>
+  </div>
+
+  <div class="card">
+    <h2>C. Chi tiết rãnh sensor trên mặt huyền (nhìn vuông góc mặt huyền)</h2>
+    <p>8 rãnh cách đều dọc 800 mm. Mỗi rãnh có hốc chìm cho thân module + 2 lỗ vít M2 + cửa sổ quang thông ra ngoài.</p>
+    <div id="figSlots"></div>
+    <ul id="slotNotes"></ul>
+  </div>
+
+  <div class="card">
+    <h2>D. Vùng phủ theo bề rộng băng &amp; ngưỡng phát hiện</h2>
+    <div id="figCov"></div>
+    <table id="covTable"></table>
+  </div>
+</div>
+<script src="sensor_prism_mount.js"></script>
+</body>
+</html>

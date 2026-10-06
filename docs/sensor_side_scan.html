@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensor lắp hông băng, quét ngang — mặt phẳng quét & vấn đề ngưỡng 900mm</title>
+<style>
+  :root {
+    --surface-1:#fcfcfb; --page:#f9f9f7; --text-primary:#0b0b0b; --text-secondary:#52514e;
+    --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+    --good:#0ca30c; --warning:#eda100; --critical:#d03b3b;
+    --belt:#d9dde2; --frame:#8a8f96; --sensor:#2a78d6; --beam:#3987e5; --child:#4a3aa7; --bolt:#52514e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1:#1a1a19; --page:#0d0d0d; --text-primary:#fff; --text-secondary:#c3c2b7;
+      --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+      --good:#0ca30c; --warning:#eda100; --critical:#d03b3b;
+      --belt:#33373d; --frame:#6a6f76; --sensor:#3987e5; --beam:#3987e5; --child:#9085e9; --bolt:#c3c2b7;
+    }
+  }
+  body { margin:0; padding:24px; background:var(--page); color:var(--text-primary);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.5; }
+  .wrap { max-width:1000px; margin:0 auto; }
+  h1 { font-size:21px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:0 0 6px; }
+  p { color:var(--text-secondary); font-size:13.5px; margin:4px 0; }
+  .card { background:var(--surface-1); border-radius:10px; padding:16px;
+    border:1px solid rgba(11,11,11,0.10); margin:14px 0; }
+  @media (prefers-color-scheme: dark) { .card { border-color:rgba(255,255,255,0.12); } }
+  svg { width:100%; height:auto; display:block; margin:6px 0; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; margin:8px 0; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; color:var(--text-secondary); }
+  .sw { width:13px; height:13px; border-radius:3px; display:inline-block; }
+  ul { margin:6px 0 0; padding-left:18px; font-size:13px; color:var(--text-secondary); }
+  li { margin:4px 0; }
+  code { font-family:ui-monospace,Consolas,monospace; font-size:12.5px;
+    background:rgba(128,128,128,0.14); padding:1px 5px; border-radius:4px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:820px){ .two { grid-template-columns:1fr; } }
+  .verdict { border-left:3px solid var(--warning); padding-left:12px; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sensor lắp dọc hông băng, quét ngang — mặt phẳng quét &amp; vấn đề ngưỡng 900mm</h1>
+  <p>Băng 98×63cm. 6× VL53L0X trên gờ dọc hông băng, tâm sensor cao 6cm, nghiêng lên 25°, FoV 25° (±12.5°).</p>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--sensor)"></i> Sensor</span>
+    <span><i class="sw" style="background:var(--beam);opacity:.45"></i> Mặt phẳng quét (nón ±12.5°)</span>
+    <span><i class="sw" style="background:var(--child)"></i> Trẻ</span>
+    <span><i class="sw" style="background:var(--critical)"></i> Ngưỡng 900mm / lỗi</span>
+    <span><i class="sw" style="background:var(--good)"></i> Vùng hợp lệ</span>
+  </div>
+
+  <div class="card">
+    <h2>A. Tổng thể 3D — gờ sensor dọc hông, mỗi sensor là một mặt phẳng quét cắt ngang băng</h2>
+    <p>Mỗi sensor tạo một <b>mặt phẳng quét thẳng đứng</b> cắt ngang bề rộng băng. 6 mặt phẳng = 6 lát cắt dọc theo chiều dài. Trẻ đứng ở đâu thì chắn đúng các lát cắt đó → biết vị trí dọc băng. Không có occlusion giữa các lát.</p>
+    <div id="fig3d"></div>
+  </div>
+
+  <div class="card">
+    <h2>B. Mặt cắt ngang (nhìn dọc theo băng) — hình học chính xác của một mặt phẳng quét</h2>
+    <p>Đây là hình quan trọng nhất: nó cho thấy tia nghiêng 25° <b>đi tới đâu</b>, và ngưỡng <code>900mm</code> nằm ở đâu so với mép băng.</p>
+    <div id="figcross"></div>
+    <ul id="crossnotes"></ul>
+  </div>
+
+  <div class="card">
+    <h2>C. Ngưỡng 900mm gây lỗi gì — phụ thuộc phía đối diện có vật hay không</h2>
+    <p>Hai kịch bản dưới đây có cùng phần mềm, khác nhau ở cơ khí phía đối diện. Cả hai đều hỏng, nhưng hỏng theo hai kiểu khác nhau.</p>
+    <div class="two">
+      <div><div id="figC1"></div></div>
+      <div><div id="figC2"></div></div>
+    </div>
+    <ul id="cnotes"></ul>
+  </div>
+
+  <div class="card">
+    <h2>D. Cách sửa — target strip + baseline learning</h2>
+    <p>Đặt một dải target phẳng, nhám, màu sáng ở phía đối diện <b>tại đúng độ cao tia chạm tới</b>. Khi đó mỗi sensor luôn có nền cố định → phân biệt được 3 trạng thái thay vì 2.</p>
+    <div id="figD"></div>
+    <ul id="dnotes"></ul>
+  </div>
+</div>
+<script src="sensor_side_scan.js"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Tia nón 25° — băng 75×40, 6 sensor (SVG vẽ tay)</title>
+<style>
+  body{background:#f9f9f7;color:#0b0b0b;font-family:system-ui,sans-serif;padding:20px}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:19px}
+  p{color:#52514e;font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>6 sensor nón 25° trên băng 75×40cm — nhìn từ trên</h1>
+<p>Trụ sensor ở mép trên (dải xám). Mỗi sensor nón 25° đổ xuống; vệt hẹp ở mép gần (⌀4.8cm), rộng ở mép xa (⌀17.8cm). Mép xa phủ chồng kín; mép gần khe ~7.7cm &lt; bàn chân 9cm → không sót.</p>
+
+<svg viewBox="0 0 640 400" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <!-- băng 75x40 -->
+  <rect x="45" y="60" width="525" height="280" fill="#d9dde2" stroke="#c3c2b7" rx="6"/>
+  <!-- trụ sensor mép trên -->
+  <rect x="45" y="48" width="525" height="14" fill="#8a8f96" rx="4"/>
+  <text x="307" y="46" text-anchor="middle" font-size="11" fill="#898781">trụ sensor (mặt huyền nghiêng 77°)</text>
+
+  <!-- 6 sensor: tâm X (tính px: M45 + cm*7) -->
+  <!-- tâm cm: 6.25,18.75,31.25,43.75,56.25,68.75 -> px: 88.75,176.25,263.75,351.25,438.75,526.25 -->
+
+  <!-- nón từng sensor: tam giác từ (sx,60) xuống mép y=40cm (px 340).
+       bán kính tại y=40 = 8.9cm -> px 62.3 -->
+  <!-- S1: sx=88.75 -->
+  <polygon points="88.75,60 26.45,340 151.05,340" fill="#3987e5" fill-opacity="0.22"/>
+  <line x1="88.75" y1="60" x2="26.45" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <line x1="88.75" y1="60" x2="151.05" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <circle cx="88.75" cy="60" r="4" fill="#2a78d6"/>
+  <text x="88.75" y="52" text-anchor="middle" font-size="10" fill="#2a78d6">S1</text>
+  <!-- S2: sx=176.25 -->
+  <polygon points="176.25,60 113.95,340 238.55,340" fill="#3987e5" fill-opacity="0.22"/>
+  <line x1="176.25" y1="60" x2="113.95" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <line x1="176.25" y1="60" x2="238.55" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <circle cx="176.25" cy="60" r="4" fill="#2a78d6"/>
+  <text x="176.25" y="52" text-anchor="middle" font-size="10" fill="#2a78d6">S2</text>
+  <!-- S3: sx=263.75 -->
+  <polygon points="263.75,60 201.45,340 326.05,340" fill="#3987e5" fill-opacity="0.22"/>
+  <line x1="263.75" y1="60" x2="201.45" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <line x1="263.75" y1="60" x2="326.05" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <circle cx="263.75" cy="60" r="4" fill="#2a78d6"/>
+  <text x="263.75" y="52" text-anchor="middle" font-size="10" fill="#2a78d6">S3</text>
+  <!-- S4: sx=351.25 -->
+  <polygon points="351.25,60 288.95,340 413.55,340" fill="#3987e5" fill-opacity="0.22"/>
+  <line x1="351.25" y1="60" x2="288.95" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <line x1="351.25" y1="60" x2="413.55" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <circle cx="351.25" cy="60" r="4" fill="#2a78d6"/>
+  <text x="351.25" y="52" text-anchor="middle" font-size="10" fill="#2a78d6">S4</text>
+  <!-- S5: sx=438.75 -->
+  <polygon points="438.75,60 376.45,340 501.05,340" fill="#3987e5" fill-opacity="0.22"/>
+  <line x1="438.75" y1="60" x2="376.45" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <line x1="438.75" y1="60" x2="501.05" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <circle cx="438.75" cy="60" r="4" fill="#2a78d6"/>
+  <text x="438.75" y="52" text-anchor="middle" font-size="10" fill="#2a78d6">S5</text>
+  <!-- S6: sx=526.25 -->
+  <polygon points="526.25,60 463.95,340 588.55,340" fill="#3987e5" fill-opacity="0.22"/>
+  <line x1="526.25" y1="60" x2="463.95" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <line x1="526.25" y1="60" x2="588.55" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>
+  <circle cx="526.25" cy="60" r="4" fill="#2a78d6"/>
+  <text x="526.25" y="52" text-anchor="middle" font-size="10" fill="#2a78d6">S6</text>
+
+  <!-- vệt phủ tại mép xa y=40cm (px 340): mỗi con ⌀17.8cm -> bán kính px 62.3 -->
+  <line x1="45" y1="340" x2="570" y2="340" stroke="#0ca30c" stroke-width="2"/>
+  <line x1="26.45" y1="340" x2="151.05" y2="340" stroke="#0ca30c" stroke-width="5"/>
+  <line x1="113.95" y1="340" x2="238.55" y2="340" stroke="#0ca30c" stroke-width="5"/>
+  <line x1="201.45" y1="340" x2="326.05" y2="340" stroke="#0ca30c" stroke-width="5"/>
+  <line x1="288.95" y1="340" x2="413.55" y2="340" stroke="#0ca30c" stroke-width="5"/>
+  <line x1="376.45" y1="340" x2="501.05" y2="340" stroke="#0ca30c" stroke-width="5"/>
+  <line x1="463.95" y1="340" x2="588.55" y2="340" stroke="#0ca30c" stroke-width="5"/>
+  <text x="307" y="362" text-anchor="middle" font-size="10.5" fill="#0ca30c">mép xa: vệt ⌀17.8cm/con — phủ chồng kín, không khe</text>
+
+  <!-- khe mù mép gần tại y=10cm (px 130): bán kính 2.4cm -> px 16.8 -->
+  <!-- 2 sensor cạnh nhau cách 12.5cm: vệt trái 16.8 + vệt phải 16.8 = 33.6px < 87.5px gap -->
+  <rect x="131.95" y="128" width="53.8" height="5" fill="#d03b3b" fill-opacity="0.5"/>
+  <text x="307" y="146" text-anchor="middle" font-size="9.5" fill="#d03b3b">mép gần: khe ~7.7cm &lt; bàn chân 9cm → không sót</text>
+
+  <!-- nhãn kích thước -->
+  <text x="35" y="200" text-anchor="end" font-size="11" fill="#898781">40cm</text>
+  <text x="307" y="392" text-anchor="middle" font-size="11" fill="#898781">chiều dài băng 75cm</text>
+</svg>
+</div>
+</body>
+</html>

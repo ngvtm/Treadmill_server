@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Phôi trụ sensor 750mm — 8 rãnh (cập nhật)</title>
+<style>
+  body{background:#f9f9f7;color:#0b0b0b;font-family:system-ui,sans-serif;padding:20px}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:19px}
+  p{color:#52514e;font-size:13.5px}
+  svg{width:100%;height:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Phôi trụ sensor — dài 750mm, 8 rãnh, PITCH 93.75mm</h1>
+<p>Mặt huyền nghiêng 77° (cao 40mm, đáy 60mm). 8 rãnh cách đều 93.75mm, tâm từ 46.9 đến 703.1mm. Ngưỡng VL53_DETECT_MAX_MM = 380mm (băng 40cm).</p>
+
+<!-- mặt cắt ngang trụ: hình thang 60 đáy lớn, 40 cao, nghiêng 77 -->
+<svg viewBox="0 0 860 220" xmlns="http://www.w3.org/2000/svg">
+  <!-- trụ nhìn cạnh: hình thang dài 750 (tỷ lệ thu gọn) -->
+  <!-- mặt cắt hình thang ở bên trái -->
+  <g>
+    <!-- mặt cắt ngang phóng to -->
+    <polygon points="60,140 220,140 190,40 60,40" fill="#d9dde2" stroke="#8a8f96" stroke-width="2"/>
+    <text x="140" y="160" text-anchor="middle" font-size="11" fill="#52514e">đáy lớn 60mm</text>
+    <text x="40" y="95" text-anchor="end" font-size="11" fill="#52514e">cao 40</text>
+    <text x="215" y="70" font-size="10" fill="#8a8f96">77°</text>
+    <!-- mặt huyền (cạnh nghiêng) là nơi đặt sensor -->
+    <line x1="220" y1="140" x2="190" y2="40" stroke="#2a78d6" stroke-width="3"/>
+    <text x="228" y="95" font-size="10.5" fill="#2a78d6">mặt huyền (đặt sensor)</text>
+  </g>
+
+  <!-- trụ dài 750 nhìn từ bên: dải rãnh trên mặt huyền -->
+  <g transform="translate(300,60)">
+    <rect x="0" y="0" width="520" height="14" fill="#8a8f96" rx="3"/>
+    <text x="260" y="32" text-anchor="middle" font-size="11" fill="#52514e">trụ dài 750mm — 8 rãnh cách 93.75mm</text>
+    <!-- 8 rãnh: tâm 46.9,140.6,234.4,328.1,421.9,515.6,609.4,703.1 -> tỷ lệ 520/750 -->
+    <g>
+      <rect x="32" y="-2" width="5" height="18" fill="#2a78d6"/>
+      <rect x="97" y="-2" width="5" height="18" fill="#2a78d6"/>
+      <rect x="162" y="-2" width="5" height="18" fill="#2a78d6"/>
+      <rect x="227" y="-2" width="5" height="18" fill="#2a78d6"/>
+      <rect x="292" y="-2" width="5" height="18" fill="#2a78d6"/>
+      <rect x="357" y="-2" width="5" height="18" fill="#2a78d6"/>
+      <rect x="422" y="-2" width="5" height="18" fill="#2a78d6"/>
+      <rect x="487" y="-2" width="5" height="18" fill="#2a78d6"/>
+    </g>
+    <text x="260" y="55" text-anchor="middle" font-size="10" fill="#52514e">rãnh 1 (46.9) — rãnh 8 (703.1), PITCH 93.75mm</text>
+  </g>
+</svg>
+
+<p><b>Đã sửa 2 file nguồn:</b> <code>sensor_beam.scad</code> và <code>build_beam.py</code> — LEN 900→750, giữ N=8. Chạy lại trên máy có OpenSCAD/cadquery để xuất STL/STEP mới.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3 góc nhìn máy chạy — chùm nón sensor phủ mặt băng</title>
+<style>
+  :root{
+    --surface-1:#fcfcfb;--page:#f9f9f7;--text-primary:#0b0b0b;--text-secondary:#52514e;
+    --muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;
+    --good:#0ca30c;--warning:#eda100;--critical:#d03b3b;
+    --belt:#d9dde2;--frame:#8a8f96;--sensor:#2a78d6;--beam:#3987e5;--child:#4a3aa7;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --surface-1:#1a1a19;--page:#0d0d0d;--text-primary:#fff;--text-secondary:#c3c2b7;
+    --muted:#898781;--grid:#2c2c2a;--axis:#383835;
+    --belt:#33373d;--frame:#6a6f76;--sensor:#3987e5;--beam:#3987e5;--child:#9085e9;}}
+  body{margin:0;padding:24px;background:var(--page);color:var(--text-primary);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;}
+  .wrap{max-width:960px;margin:0 auto;}
+  h1{font-size:20px;margin:0 0 4px;}
+  h2{font-size:15px;margin:0 0 6px;}
+  p{color:var(--text-secondary);font-size:13.5px;margin:4px 0;}
+  .card{background:var(--surface-1);border-radius:10px;padding:16px;
+    border:1px solid rgba(11,11,11,0.10);margin:14px 0;}
+  svg{width:100%;height:auto;display:block;margin:6px 0;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;margin:8px 0;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary);}
+  .sw{width:13px;height:13px;border-radius:3px;display:inline-block;}
+  .note{background:color-mix(in srgb,var(--warning) 14%,transparent);border-left:3px solid var(--warning);
+    padding:8px 12px;border-radius:6px;font-size:13px;margin:8px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>3 góc nhìn máy chạy — chùm nón sensor (FoV 25°) từ thanh chắn cao 130cm</h1>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--sensor)"></i> Sensor</span>
+    <span><i class="sw" style="background:var(--beam);opacity:.35"></i> Chùm nón 25°</span>
+    <span><i class="sw" style="background:var(--good);opacity:.35"></i> Vệt phủ trên mặt băng</span>
+    <span><i class="sw" style="background:var(--child)"></i> Trẻ</span>
+  </div>
+  <div class="card"><h2>1. Nhìn từ TRÊN xuống (top view) — vệt nón trên mặt băng</h2>
+    <p>Mỗi nón chiếu xuống tạo một vệt tròn đường kính ~57cm trên mặt băng (0.44 × 130cm). Xem các vệt có phủ kín 98×63cm không.</p>
+    <div id="top"></div></div>
+  <div class="card"><h2>2. Nhìn từ HÔNG (side view) — dọc chiều dài 98cm</h2>
+    <p>Các nón xòe xuống dọc chiều dài băng. Chỗ giao nhau = phủ chồng.</p>
+    <div id="side"></div></div>
+  <div class="card"><h2>3. Nhìn từ ĐẦU băng (front view) — ngang bề rộng 63cm</h2>
+    <p>Một hàng sensor giữa băng: nón xòe ngang. Xem có tràn ra ngoài mép 63cm không.</p>
+    <div id="front"></div></div>
+  <div class="note" id="verdict"></div>
+</div>
+<script src="sensor_views.js"></script>
+</body>
+</html>

@@ -6,12 +6,12 @@ extern "C" {
 #endif
 
 /*
- * 6 IR sensors, active LOW (detect = 0), arranged from front to rear:
+ * 6 safety sensors, arranged from front to rear:
  *
- *   IR1, IR2 -> SAFE
- *   IR3      -> WARNING_1: warn only
- *   IR4      -> WARNING_2: reduce speed
- *   IR5, IR6 -> DANGER: controlled fast stop
+ *   S0, S1 -> SAFE
+ *   S2     -> WARNING_1: warn only
+ *   S3     -> WARNING_2: reduce speed
+ *   S4, S5 -> DANGER: controlled fast stop
  *   NONE     -> no person detected
  */
 
@@ -25,7 +25,11 @@ typedef enum {
 
 void ir_safety_init(void);
 ir_zone_t ir_safety_get_zone(void);
+ir_zone_t ir_safety_get_cached_zone(void);
+bool ir_safety_is_ready(void);
 bool ir_safety_is_safe(void);
+void ir_safety_log_levels(void);
+void ir_safety_health_check(void);
 
 #ifdef __cplusplus
 }

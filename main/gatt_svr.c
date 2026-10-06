@@ -15,6 +15,11 @@
 
 #define MAX_NOTIFY 5
 #define TREADMILL_MSG_STATUS 0x80
+#define SAFETY_MONITOR_STACK_SIZE 12288
+// Health-probe period while treadmill is OFF. 200ms for realtime bench-testing
+// of mount height (watch raw distances react as you move a sensor); raise back
+// toward 2000ms for normal use.
+#define IR_HEALTH_PERIOD_MS 200
 
 typedef enum {
     TREADMILL_ALERT_NONE = 0,
@@ -56,6 +61,7 @@ static const ble_uuid128_t gatt_svr_dsc_uuid =
 
 static int gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
                            struct ble_gatt_access_ctxt *ctxt, void *arg);
+static void gatt_svr_update_status(uint8_t alert, uint8_t zone);
 
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
@@ -125,6 +131,8 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
         }
         uuid = ctxt->chr->uuid;
         if (attr_handle == gatt_svr_chr_val_handle) {
+            gatt_svr_update_status(TREADMILL_ALERT_NONE,
+                                   ir_safety_get_cached_zone());
             rc = os_mbuf_append(ctxt->om,
                                 &gatt_svr_status_val,
                                 sizeof(gatt_svr_status_val));
@@ -147,15 +155,15 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
                                 sizeof(gatt_svr_chr_val),
                                 &gatt_svr_chr_val, NULL);
             if (rc == 0) {
-                ir_zone_t before_zone = ir_safety_get_zone();
                 treadmill_handle_command(gatt_svr_chr_val);
+                ir_zone_t zone = ir_safety_get_cached_zone();
                 if (gatt_svr_chr_val == TREADMILL_CMD_ON &&
                     !treadmill_is_running()) {
                     gatt_svr_notify_status(TREADMILL_ALERT_CMD_REJECTED,
-                                           before_zone);
+                                           zone);
                 } else {
                     gatt_svr_notify_status(TREADMILL_ALERT_NONE,
-                                           ir_safety_get_zone());
+                                           zone);
                 }
             }
             return rc;
@@ -203,7 +211,7 @@ void gatt_svr_clear_connection(uint16_t conn_handle)
     }
 }
 
-void gatt_svr_notify_status(uint8_t alert, uint8_t zone)
+static void gatt_svr_update_status(uint8_t alert, uint8_t zone)
 {
     gatt_svr_status_val.type = TREADMILL_MSG_STATUS;
     gatt_svr_status_val.running = treadmill_is_running() ? 1 : 0;
@@ -212,7 +220,11 @@ void gatt_svr_notify_status(uint8_t alert, uint8_t zone)
     gatt_svr_status_val.safety_limited = treadmill_is_safety_limited() ? 1 : 0;
     gatt_svr_status_val.zone = zone;
     gatt_svr_status_val.alert = alert;
+}
 
+void gatt_svr_notify_status(uint8_t alert, uint8_t zone)
+{
+    gatt_svr_update_status(alert, zone);
     if (gatt_svr_conn_handle == BLE_HS_CONN_HANDLE_NONE ||
         gatt_svr_chr_val_handle == 0) {
         return;
@@ -262,40 +274,52 @@ gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
     }
 }
 
+static uint8_t alert_for_zone(ir_zone_t zone)
+{
+    switch (zone) {
+    case IR_ZONE_WARNING_1: return TREADMILL_ALERT_WARNING_1;
+    case IR_ZONE_WARNING_2: return TREADMILL_ALERT_WARNING_2;
+    case IR_ZONE_DANGER:    return TREADMILL_ALERT_DANGER;
+    case IR_ZONE_NONE:      return TREADMILL_ALERT_NO_PERSON;
+    case IR_ZONE_SAFE:
+    default:                return TREADMILL_ALERT_NONE;
+    }
+}
+
 static void safety_monitor_task(void *arg)
 {
     ir_zone_t last_zone = IR_ZONE_NONE;
+    bool have_last_zone = false;
+    TickType_t last_health_tick = 0;
 
     while (1) {
-        if (treadmill_is_running()) {
-            ir_zone_t zone = ir_safety_get_zone();
-            treadmill_handle_safety_zone(zone);
+        bool running = treadmill_is_running();
+        ir_zone_t zone;
 
-            if (zone != last_zone) {
-                uint8_t alert = TREADMILL_ALERT_NONE;
-                switch (zone) {
-                case IR_ZONE_WARNING_1:
-                    alert = TREADMILL_ALERT_WARNING_1;
-                    break;
-                case IR_ZONE_WARNING_2:
-                    alert = TREADMILL_ALERT_WARNING_2;
-                    break;
-                case IR_ZONE_DANGER:
-                    alert = TREADMILL_ALERT_DANGER;
-                    break;
-                case IR_ZONE_NONE:
-                    alert = TREADMILL_ALERT_NO_PERSON;
-                    break;
-                case IR_ZONE_SAFE:
-                default:
-                    alert = TREADMILL_ALERT_NONE;
-                    break;
-                }
-                gatt_svr_notify_status(alert, zone);
-                last_zone = zone;
-            }
+        if (running) {
+            zone = ir_safety_get_zone();
         } else {
-            last_zone = IR_ZONE_NONE;
+            // Keep watching while the belt is off so the smartkey still gets
+            // told about DANGER; refresh on the health cadence, not every loop.
+            if (xTaskGetTickCount() - last_health_tick < pdMS_TO_TICKS(IR_HEALTH_PERIOD_MS)) {
+                vTaskDelay(pdMS_TO_TICKS(100));
+                continue;
+            }
+            ir_safety_health_check();
+            last_health_tick = xTaskGetTickCount();
+            zone = ir_safety_get_cached_zone();
+        }
+
+        if (!have_last_zone || zone != last_zone) {
+            have_last_zone = true;
+            last_zone = zone;
+
+            // Motor action only applies while running; the handler itself is a
+            // no-op when stopped, but the alert goes out either way.
+            if (running) {
+                treadmill_handle_safety_zone(zone);
+            }
+            gatt_svr_notify_status(alert_for_zone(zone), zone);
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -305,9 +329,6 @@ static void safety_monitor_task(void *arg)
 int gatt_svr_init(void)
 {
     int rc;
-
-    ir_safety_init();
-    treadmill_init();
 
     ble_svc_gap_init();
     ble_svc_gatt_init();
@@ -325,7 +346,8 @@ int gatt_svr_init(void)
 
     gatt_svr_dsc_val = 0x99;
 
-    xTaskCreate(safety_monitor_task, "safety_mon", 2048, NULL, 12, NULL);
+    xTaskCreate(safety_monitor_task, "safety_mon",
+                SAFETY_MONITOR_STACK_SIZE, NULL, 12, NULL);
     ESP_LOGI("GATT", "Safety monitor started");
 
     return 0;

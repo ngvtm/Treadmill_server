@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>So sánh 6 vs 7 vs 8 sensor — băng 75×40</title>
+<style>
+  body{background:#f9f9f7;color:#0b0b0b;font-family:system-ui,sans-serif;padding:20px}
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:19px}
+  p{color:#52514e;font-size:13.5px}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .card{background:#fff;border:1px solid #e1e0d9;border-radius:10px;padding:12px;flex:1;min-width:280px}
+  h2{font-size:14px;margin:0 0 4px}
+  .sum{font-size:12.5px;margin-top:6px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>So sánh 6 / 7 / 8 sensor — băng 75×40cm, nón 25°</h1>
+<p>Mỗi sensor nón 25°: vệt mép gần (y=10) ⌀4.8cm, mép xa (y=40) ⌀17.8cm. Đỏ = khe mù ở mép gần (nơi hẹp nhất). Bàn chân trẻ ~9cm.</p>
+<div class="row">
+  <div class="card" id="c6"></div>
+  <div class="card" id="c7"></div>
+  <div class="card" id="c8"></div>
+</div>
+</div>
+<script>
+// vẽ SVG tay cho N sensor. Mỗi sensor tại x=cm*7+45 (px), y=60.
+// Vệt tại y=40 (px 340): bán kính 62.3px. Tại y=10 (px 130): bán kính 16.8px.
+function svgFor(N){
+  const SP=75/N, PX=7;
+  let s='<svg viewBox="0 0 640 400" width="100%" xmlns="http://www.w3.org/2000/svg">';
+  // băng
+  s+='<rect x="45" y="60" width="525" height="280" fill="#d9dde2" stroke="#c3c2b7" rx="6"/>';
+  s+='<rect x="45" y="48" width="525" height="14" fill="#8a8f96" rx="4"/>';
+  // sensor
+  let gapInfo='';
+  for(let i=0;i<N;i++){
+    const cx=SP*(i+0.5), sx=cx*PX+45;
+    s+=`<polygon points="${sx},60 ${sx-62.3},340 ${sx+62.3},340" fill="#3987e5" fill-opacity="0.2"/>`;
+    s+=`<line x1="${sx}" y1="60" x2="${sx-62.3}" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>`;
+    s+=`<line x1="${sx}" y1="60" x2="${sx+62.3}" y2="340" stroke="#3987e5" stroke-opacity="0.6"/>`;
+    s+=`<circle cx="${sx}" cy="60" r="4" fill="#2a78d6"/>`;
+    s+=`<text x="${sx}" y="52" text-anchor="middle" font-size="9" fill="#2a78d6">S${i+1}</text>`;
+    // vệt mép xa
+    s+=`<line x1="${sx-62.3}" y1="340" x2="${sx+62.3}" y2="340" stroke="#0ca30c" stroke-width="5"/>`;
+  }
+  // khe mù mép gần y=10 (px130): vệt 16.8px mỗi bên
+  for(let i=0;i<N-1;i++){
+    const x1=SP*(i+0.5)*PX+45, x2=SP*(i+1.5)*PX+45;
+    const gapPx=(x2-x1)-2*16.8;
+    if(gapPx>0){
+      const mid=(x1+x2)/2;
+      s+=`<rect x="${mid-gapPx/2}" y="128" width="${gapPx}" height="5" fill="#d03b3b" fill-opacity="0.55"/>`;
+    }
+  }
+  s+='<text x="307" y="146" text-anchor="middle" font-size="9" fill="#d03b3b">khe mù mép gần (đỏ)</text>';
+  s+='<text x="307" y="362" text-anchor="middle" font-size="9.5" fill="#0ca30c">mép xa phủ kín</text>';
+  s+='<text x="307" y="392" text-anchor="middle" font-size="10" fill="#898781">băng 75cm</text>';
+  s+='</svg>';
+  // tính khe mép gần thật
+  const gap=(SP-2*2.4);
+  const sum = `6→khe ${gap.toFixed(1)}cm` ;
+  return s;
+}
+function fill(id,N){
+  const SP=75/N;
+  const gap=(SP-2*2.4).toFixed(1);
+  const over = 2*17.8 - SP; // độ chồng mép xa
+  document.getElementById(id).innerHTML =
+    `<h2>${N} sensor (cách ${SP.toFixed(1)}cm)</h2>`+svgFor(N)+
+    `<div class="sum">Khe mù mép gần: <b>${gap}cm</b> ${gap<9?'(< 9cm chân → không sót)':'⚠ có thể sót'}<br>Chồng mép xa: ~${over.toFixed(1)}cm (kín)</div>`;
+}
+fill('c6',6); fill('c7',7); fill('c8',8);
+</script>
+</body>
+</html>

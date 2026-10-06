@@ -42,9 +42,16 @@ void treadmill_handle_command(uint8_t cmd)
 {
     switch (cmd) {
     case TREADMILL_CMD_ON: {
+        if (!ir_safety_is_ready()) {
+            ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, VL53 safety not ready");
+            ir_safety_log_levels();
+            return;
+        }
+
         ir_zone_t zone = ir_safety_get_zone();
         if (zone != IR_ZONE_SAFE) {
             ESP_LOGW(TAG, "SAFETY BLOCK: reject ON, zone=%s", zone_to_str(zone));
+            ir_safety_log_levels();
             return;
         }
 

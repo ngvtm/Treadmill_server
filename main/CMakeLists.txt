@@ -10,7 +10,7 @@ idf_component_register(
         "gatt_svr.c"
         "treadmill/treadmill.c"     # <-- thêm dòng này
         "motor/motor.c"
-        "ir_safety/ir_safety.c"
+        "ir_safety/ir_safety.cpp"
     INCLUDE_DIRS
         "."
         "treadmill"                 # <-- thêm dòng này để #include "treadmill.h" hoạt động
@@ -24,5 +24,6 @@ idf_component_register(
         freertos
         log
         esp_system
+        ESP32_VL53L0X
 )
                      

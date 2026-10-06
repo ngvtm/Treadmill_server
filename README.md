@@ -3,6 +3,44 @@
 
 # BLE Peripheral Example
 
+## Sơ đồ chân ESP32 và thiết bị ngoại vi
+
+Các chân dưới đây được tổng hợp từ source hiện đang được build trong
+`main/CMakeLists.txt`.
+
+### Driver động cơ L298N
+
+| Chân ESP32 | Chân L298N | Hướng từ ESP32 | Chức năng |
+| ---------- | ---------- | -------------- | --------- |
+| GPIO5 | ENA | Output (PWM) | Điều khiển tốc độ động cơ bằng LEDC, tần số 5 kHz |
+| GPIO18 | IN1/INA | Output | Điều khiển chiều quay động cơ |
+| GPIO19 | IN2/INB | Output | Điều khiển chiều quay động cơ |
+
+### Cụm 8 cảm biến khoảng cách VL53L0X
+
+Tất cả cảm biến dùng chung bus I²C0 ở tốc độ 100 kHz. Mỗi cảm biến có một
+đường `XSHUT` riêng để ESP32 lần lượt khởi động và gán địa chỉ I²C khác nhau.
+
+| Chân ESP32 | Kết nối cảm biến | Hướng từ ESP32 | Chức năng |
+| ---------- | ---------------- | -------------- | --------- |
+| GPIO21 | SDA của S0–S7 | Hai chiều | Dữ liệu I²C dùng chung |
+| GPIO22 | SCL của S0–S7 | Output | Xung clock I²C dùng chung |
+| GPIO13 | XSHUT của S0 | Output | Bật/tắt S0; địa chỉ sau khởi tạo `0x30`; vùng SAFE |
+| GPIO14 | XSHUT của S1 | Output | Bật/tắt S1; địa chỉ sau khởi tạo `0x31`; vùng SAFE |
+| GPIO32 | XSHUT của S2 | Output | Bật/tắt S2; địa chỉ sau khởi tạo `0x32`; vùng WARNING 1 |
+| GPIO27 | XSHUT của S3 | Output | Bật/tắt S3; địa chỉ sau khởi tạo `0x33`; vùng WARNING 1 |
+| GPIO26 | XSHUT của S4 | Output | Bật/tắt S4; địa chỉ sau khởi tạo `0x34`; vùng WARNING 2 |
+| GPIO25 | XSHUT của S5 | Output | Bật/tắt S5; địa chỉ sau khởi tạo `0x35`; vùng WARNING 2 |
+| GPIO16 | XSHUT của S6 | Output | Bật/tắt S6; địa chỉ sau khởi tạo `0x36`; vùng DANGER |
+| GPIO17 | XSHUT của S7 | Output | Bật/tắt S7; địa chỉ sau khởi tạo `0x37`; vùng DANGER |
+
+> Lưu ý: chân `GPIO1`/interrupt của các module VL53L0X không được sử dụng trong
+> cấu hình hiện tại. File `main/ir_safety/ir_safety.c` là phiên bản cảm biến IR
+> số cũ và không nằm trong danh sách source được build; vì vậy các chân trong
+> file đó (đặc biệt GPIO23) không thuộc sơ đồ đấu nối hiện tại. Source không chỉ
+> định chân cấp nguồn, nên cần nối VIN và GND theo đúng điện áp của module/board
+> đang dùng.
+
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
 
 This example creates GATT server and then starts advertising, waiting to be connected to a GATT client.

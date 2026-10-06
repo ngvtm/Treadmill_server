@@ -7,6 +7,7 @@
 #include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "bleprph.h"
+#include "ir_safety/ir_safety.h"
 #include "treadmill/treadmill.h"
 
 
@@ -134,6 +135,9 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         MODLOG_DFLT(INFO, "subscribe event; conn_handle=%d attr_handle=%d\n",
                     event->subscribe.conn_handle,
                     event->subscribe.attr_handle);
+        if (event->subscribe.cur_notify) {
+            gatt_svr_notify_status(0, ir_safety_get_cached_zone());
+        }
         return 0;
 
     case BLE_GAP_EVENT_MTU:
@@ -199,6 +203,9 @@ app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    ir_safety_init();
+    treadmill_init();
 
     ret = nimble_port_init();
     if (ret != ESP_OK) {

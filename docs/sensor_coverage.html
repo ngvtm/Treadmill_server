@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phủ sóng sensor: 6 con vs 10 con — băng chạy 98×63cm</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --good: #0ca30c;        /* vùng phủ kín */
+    --critical: #d03b3b;    /* khe mù -> ZONE=NONE */
+    --belt: #eef1f4;
+    --sensor: #2a78d6;      /* categorical blue */
+    --cone: #3987e5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --text-primary: #fff; --text-secondary: #c3c2b7;
+      --muted: #898781; --grid: #2c2c2a; --axis: #383835;
+      --good: #0ca30c; --critical: #d03b3b;
+      --belt: #24242a; --sensor: #3987e5; --cone: #3987e5;
+    }
+  }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--page); color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 24px 0 8px; }
+  p { color: var(--text-secondary); font-size: 14px; margin: 4px 0; }
+  .panel {
+    background: var(--surface-1); border-radius: 10px; padding: 16px;
+    border: 1px solid rgba(11,11,11,0.10); margin: 12px 0;
+  }
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; margin: 8px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+  .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  svg { width: 100%; height: auto; display: block; }
+  text { font-family: system-ui, sans-serif; }
+  code { background: var(--belt); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  th { color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Phủ sóng sensor trên băng chạy 98 × 63 cm</h1>
+  <p>Nhìn từ trên xuống. Trẻ chạy ở giữa, cách dải sensor 20–40 cm. Mỗi VL53L0X có chùm nón 25°: bề rộng phủ = 0.44 × khoảng cách tia đi.</p>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--sensor)"></i> Sensor + tia nón</span>
+    <span><i class="sw" style="background:var(--good)"></i> Vùng phủ kín</span>
+    <span><i class="sw" style="background:var(--critical)"></i> Khe mù → ZONE=NONE</span>
+  </div>
+
+  <p style="font-size:13px">Ô vàng = bàn chân trẻ 9 cm (dọc trục băng). Bàn chân được BẮT nếu nó chạm ít nhất 1 nón; chỉ SÓT khi lọt trọn vào khe đỏ.</p>
+
+  <div class="panel">
+    <h2 style="margin-top:0">6 sensor (đang có) — khe 7.5 cm, bàn chân 9 cm vẫn bắc qua</h2>
+    <p>Khoảng cách ~16.3 cm. Khe mù ở d=20cm rộng ~7.5 cm — nhỏ hơn bàn chân 9 cm, nên chân luôn thò vào 1 tia. Đủ về hình học, nhưng biên chỉ 1.5 cm.</p>
+    <div id="svg6"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">8 sensor (khuyến nghị) — khe 4.5 cm, biên an toàn gấp đôi</h2>
+    <p>Khoảng cách ~13.4 cm. Khe mù còn ~4.5 cm — bằng nửa bàn chân. Chịu được sai số lắp, trẻ lệch mép, hoặc mục tiêu nhỏ hơn dự kiến.</p>
+    <div id="svg8"></div>
+  </div>
+
+  <h2>Công thức chọn số lượng (có tính chiều dài bàn chân)</h2>
+  <div class="panel">
+    <p><b>Bước 1 — Bề rộng phủ của 1 con</b> (chùm nón FoV 25°, nửa góc 12.5°):</p>
+    <p><code>W(d) = 2 · d · tan(12.5°) ≈ 0.44 · d</code> &nbsp; (d = khoảng cách tia đi tới mục tiêu)</p>
+
+    <p><b>Bước 2 — Worst case</b> = d nhỏ nhất (nón hẹp nhất → khe to nhất). Trẻ ở 20–40 cm → <code>d_min = 20 cm</code> → <code>W = 8.8 cm</code>.</p>
+
+    <p><b>Bước 3 — Điều kiện bàn chân KHÔNG lọt khe.</b> Khe mù giữa 2 con cách nhau S: <code>G = S − W(d_min)</code>. Bàn chân dài F luôn được bắt khi <code>G &lt; F</code>:</p>
+    <p><code>S − W(d_min) &lt; F</code> &nbsp;→&nbsp; <code>S_max = W(d_min) + F = 8.8 + 9 = 17.8 cm</code></p>
+    <p style="color:var(--muted)">Với F = 9 cm (bàn chân trẻ 6 tháng, tuổi mới bò — nhỏ nhất).</p>
+
+    <p><b>Bước 4 — Số sensor</b> phủ chiều dài L = 98 cm: <code>N = ceil(L / S_max) = ceil(98 / 17.8) = 6</code></p>
+
+    <table>
+      <tr><th>Chiến lược</th><th>S (cm)</th><th>N</th><th>Khe ở d=20cm</th><th>Biên an toàn (F−G)</th></tr>
+      <tr><td>Tối thiểu tuyệt đối (G&lt;F)</td><td>16.3</td><td><b>6</b></td><td>7.5 cm</td><td>chỉ 1.5 cm — mỏng</td></tr>
+      <tr><td>Biên an toàn ~½ bàn chân</td><td>13.4</td><td><b>8</b></td><td>4.5 cm</td><td>4.5 cm — chắc</td></tr>
+      <tr><td>Điểm (bỏ qua bàn chân — SAI)</td><td>8.8</td><td>12</td><td>0 cm</td><td>thừa, không cần</td></tr>
+    </table>
+
+    <p style="margin-top:12px"><b>Kết luận đã sửa:</b> khi tính chiều dài bàn chân, con số <b>10</b> lúc nãy là <b>thừa</b> (mình tính nhầm mục tiêu là điểm). Thực tế:</p>
+    <ul style="color:var(--text-secondary); font-size:14px">
+      <li><b>6 con (đang có) về mặt hình học ĐỦ</b> — khe 7.5cm &lt; bàn chân 9cm nên chân luôn bắc qua. Nhưng biên chỉ 1.5cm, quá mỏng cho hệ an toàn.</li>
+      <li><b>8 con cách ~13cm</b> — khe 4.5cm, biên an toàn 4.5cm (½ bàn chân). Đây là mức khuyến nghị: chịu được cả sai số lắp, chân nhỏ hơn dự kiến, hay trẻ lệch mép.</li>
+    </ul>
+    <p style="margin-top:8px; color:var(--muted)">Lưu ý: công thức giả định bàn chân nằm dọc trục băng (đúng khi chạy) và trẻ luôn ở d≥20cm. Với trẻ <b>bò</b> (đầu gối/bàn tay tiếp xúc, nhỏ hơn bàn chân) hoặc trẻ lệch sát mép (d&lt;20 → khe to hơn), nên chọn 8 con để dư biên. Hãy đo lại chiều dài bàn chân thật của đối tượng để chốt F.</p>
+  </div>
+
+<script>
+// Vẽ sơ đồ nhìn từ trên xuống bằng công thức nón thật.
+const L = 98, W = 63, HALF_TAN = Math.tan(12.5 * Math.PI/180); // 0.2217
+const CHILD_NEAR = 20, CHILD_FAR = 40; // dải trẻ chạy cách sensor (cm)
+const FOOT = 9; // chiều dài bàn chân trẻ nhỏ nhất (cm)
+const PX = 7; // px mỗi cm
+const M = 34;  // lề
+
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function draw(nSensors) {
+  const w = L*PX + M*2, h = W*PX + M*2;
+  const sensorCol = css('--sensor'), coneCol = css('--cone');
+  const goodCol = css('--good'), badCol = css('--critical');
+  const belt = css('--belt'), muted = css('--muted'), axis = css('--axis');
+  const X = cm => M + cm*PX, Y = cm => M + cm*PX;
+  let s = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Sơ đồ phủ ${nSensors} sensor">`;
+
+  // nền băng
+  s += `<rect x="${X(0)}" y="${Y(0)}" width="${L*PX}" height="${W*PX}" fill="${belt}" stroke="${axis}" rx="6"/>`;
+
+  // vị trí sensor: cách đều theo tâm dọc chiều dài L
+  const spacing = L / nSensors;
+  const sx = [];
+  for (let i=0;i<nSensors;i++) sx.push(spacing*(i+0.5));
+
+  // nón mỗi sensor (tam giác từ y=0 mở xuống hết bề rộng)
+  for (const cx of sx) {
+    const topX = X(cx), botL = X(cx - HALF_TAN*W), botR = X(cx + HALF_TAN*W);
+    s += `<polygon points="${topX},${Y(0)} ${botL},${Y(W)} ${botR},${Y(W)}" fill="${coneCol}" fill-opacity="0.16"/>`;
+  }
+
+  // dải trẻ chạy
+  s += `<rect x="${X(0)}" y="${Y(CHILD_NEAR)}" width="${L*PX}" height="${(CHILD_FAR-CHILD_NEAR)*PX}" fill="none" stroke="${muted}" stroke-dasharray="4 3"/>`;
+  s += `<text x="${X(L)-4}" y="${Y((CHILD_NEAR+CHILD_FAR)/2)}" text-anchor="end" font-size="11" fill="${muted}">dải trẻ chạy 20–40cm</text>`;
+
+  // khe mù: tam giác giữa 2 sensor kề, chụm tại y_meet = spacing/(2*HALF_TAN)
+  const yMeet = spacing/(2*HALF_TAN);
+  for (let i=0;i<sx.length-1;i++){
+    const x1=sx[i], x2=sx[i+1], mid=(x1+x2)/2;
+    const ym = Math.min(yMeet, W);
+    // chỉ phần giao với dải trẻ mới thực sự nguy hiểm -> tô đỏ đậm phần đó
+    s += `<polygon points="${X(x1)},${Y(0)} ${X(x2)},${Y(0)} ${X(mid)},${Y(ym)}" fill="${badCol}" fill-opacity="0.55"/>`;
+  }
+  // khe hai mép ngoài
+  const edgeGap = sx[0]; // từ 0 tới sensor đầu
+  s += `<polygon points="${X(0)},${Y(0)} ${X(sx[0])},${Y(0)} ${X(0)},${Y(Math.min(edgeGap/HALF_TAN,W))}" fill="${badCol}" fill-opacity="0.55"/>`;
+  s += `<polygon points="${X(sx[sx.length-1])},${Y(0)} ${X(L)},${Y(0)} ${X(L)},${Y(Math.min(edgeGap/HALF_TAN,W))}" fill="${badCol}" fill-opacity="0.55"/>`;
+
+  // sensor markers
+  for (let i=0;i<sx.length;i++){
+    s += `<circle cx="${X(sx[i])}" cy="${Y(0)}" r="5" fill="${sensorCol}" stroke="${css('--surface-1')}" stroke-width="1.5"/>`;
+    s += `<text x="${X(sx[i])}" y="${Y(0)-9}" text-anchor="middle" font-size="10" fill="${sensorCol}">S${i}</text>`;
+  }
+
+  // Ô bàn chân 9cm đặt giữa 2 sensor kề (worst case), dọc trục băng, ở d=20cm.
+  // Rộng ~4cm (ngang bàn chân), dài FOOT theo trục dài băng.
+  if (sx.length >= 2) {
+    const gapMid = (sx[0]+sx[1])/2;      // tâm khe đầu tiên
+    const footW = 4;                      // ngang bàn chân
+    const fx = X(gapMid - FOOT/2), fy = Y(CHILD_NEAR);
+    s += `<rect x="${fx}" y="${fy}" width="${FOOT*PX}" height="${footW*PX}" rx="4" fill="#eda100" fill-opacity="0.9" stroke="${css('--surface-1')}" stroke-width="1"/>`;
+    s += `<text x="${fx + FOOT*PX/2}" y="${fy + footW*PX + 12}" text-anchor="middle" font-size="10" fill="${muted}">bàn chân ${FOOT}cm</text>`;
+  }
+
+  // nhãn trục
+  s += `<text x="${X(L/2)}" y="${Y(W)+22}" text-anchor="middle" font-size="12" fill="${muted}">chiều dài băng 98 cm — ${nSensors} sensor cách ${spacing.toFixed(1)} cm</text>`;
+  s += `</svg>`;
+  return s;
+}
+
+document.getElementById('svg6').innerHTML = draw(6);
+document.getElementById('svg8').innerHTML = draw(8);
+</script>
+</div>
+</body>
+</html>
