@@ -78,3 +78,30 @@ menu "Example Configuration"
             Use this option to enable resolving peer's address.
 
 endmenu
+
+menu "Treadmill Configuration"
+
+    config TREADMILL_IR_HEALTH_PERIOD_MS
+        int "IR safety health-check period while treadmill is OFF (ms)"
+        default 200
+        range 50 10000
+        help
+            How often the VL53L0X array is health-checked / refreshed
+            while the belt is OFF. 200 ms is the bench-tuning value
+            (raw distances react in real time while choosing a sensor
+            mount height); raise toward 2000 ms for normal use.
+            Tune via menuconfig during threshold testing — no code
+            change needed.
+
+    config TREADMILL_VL53_DETECT_MAX_MM
+        int "VL53L0X person-detection threshold (mm)"
+        default 700
+        range 100 2000
+        help
+            A sensor counts as detecting a person when a valid range
+            reading is within this distance. 700 mm matches the
+            side-rail cross-scan geometry (800x650 mm belt, far edge
+            reads ~666 mm slant range). Still being tuned on the
+            bench — change here instead of editing ir_safety.cpp.
+
+endmenu

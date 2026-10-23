@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "host/ble_hs.h"
@@ -16,10 +17,11 @@
 #define MAX_NOTIFY 5
 #define TREADMILL_MSG_STATUS 0x80
 #define SAFETY_MONITOR_STACK_SIZE 12288
-// Health-probe period while treadmill is OFF. 200ms for realtime bench-testing
-// of mount height (watch raw distances react as you move a sensor); raise back
-// toward 2000ms for normal use.
-#define IR_HEALTH_PERIOD_MS 200
+// Health-probe period while treadmill is OFF — now a menuconfig
+// value (Treadmill Configuration -> TREADMILL_IR_HEALTH_PERIOD_MS,
+// default 200 ms) so it can be raised toward 2000 ms for normal use
+// without editing code. See Kconfig.projbuild.
+#define IR_HEALTH_PERIOD_MS CONFIG_TREADMILL_IR_HEALTH_PERIOD_MS
 
 typedef enum {
     TREADMILL_ALERT_NONE = 0,

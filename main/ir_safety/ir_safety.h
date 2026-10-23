@@ -6,12 +6,14 @@ extern "C" {
 #endif
 
 /*
- * 6 safety sensors, arranged from front to rear:
+ * 8 safety sensors, arranged from front to rear, symmetric 2-2-2-2
+ * (matches SENSOR_ROLE in ir_safety.cpp — an earlier revision of
+ * this comment described the old 6-sensor layout):
  *
  *   S0, S1 -> SAFE
- *   S2     -> WARNING_1: warn only
- *   S3     -> WARNING_2: reduce speed
- *   S4, S5 -> DANGER: controlled fast stop
+ *   S2, S3 -> WARNING_1: warn only
+ *   S4, S5 -> WARNING_2: reduce speed
+ *   S6, S7 -> DANGER: controlled fast stop
  *   NONE     -> no person detected
  */
 

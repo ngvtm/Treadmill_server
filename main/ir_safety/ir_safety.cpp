@@ -1,3 +1,4 @@
+#include "sdkconfig.h"
 #include "ir_safety.h"
 #include "ir_safety_logic.h"
 
@@ -53,7 +54,10 @@ static constexpr uint32_t VL53_TIMING_BUDGET_US = 200000;
 // the belt from ever starting). If a baseline target strip is fitted, mount it
 // at >= 780 mm horizontal (slant >= 799 mm) so it stays clear of this threshold.
 // Verify with an empty belt: every sensor must read > 700 mm or status 4.
-static constexpr uint16_t VL53_DETECT_MAX_MM = 700;
+// Detection threshold now comes from menuconfig (Treadmill
+// Configuration -> TREADMILL_VL53_DETECT_MAX_MM, default 700 mm)
+// so bench tuning does not require a code change.
+static constexpr uint16_t VL53_DETECT_MAX_MM = CONFIG_TREADMILL_VL53_DETECT_MAX_MM;
 static constexpr uint32_t XSHUT_RESET_MS = 800;
 static constexpr uint32_t XSHUT_BOOT_MS = 800;
 static constexpr uint32_t STANDARD_INIT_ATTEMPTS = 4;
