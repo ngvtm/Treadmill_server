@@ -71,8 +71,10 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         { {
             .uuid        = &gatt_svr_chr_uuid.u,
             .access_cb   = gatt_svc_access,
-            /* FIX: bỏ _ENC flags vì không dùng encryption nữa */
+            /* Characteristic điều khiển bắt buộc link đã mã hoá
+             * (bonded): thiết bị lạ chưa pairing không ghi lệnh được. */
             .flags       = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE |
+                           BLE_GATT_CHR_F_READ_ENC | BLE_GATT_CHR_F_WRITE_ENC |
                            BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_INDICATE,
             .val_handle  = &gatt_svr_chr_val_handle,
             .descriptors = (struct ble_gatt_dsc_def[])
