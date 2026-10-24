@@ -4,6 +4,7 @@
 #include "sdkconfig.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_task_wdt.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -43,7 +44,11 @@ static void safety_key_task(void *arg)
 {
     safety_key_logic_init(&s_logic);
 
+    // Phase 1, item 1.3: watchdog-supervised (see app_main).
+    esp_task_wdt_add(NULL);
+
     while (1) {
+        esp_task_wdt_reset();
         uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
         uint32_t events = safety_key_logic_update(&s_logic,
                                                   read_key_closed(),
