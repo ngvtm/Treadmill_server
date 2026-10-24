@@ -1,4 +1,6 @@
 #include "esp_log.h"
+#include "esp_task_wdt.h"
+#include "esp_idf_version.h"
 #include "nvs_flash.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
@@ -244,6 +246,32 @@ app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    // Phase 1, item 1.3: task watchdog over the safety paths. A hung
+    // safety-monitor or safety-key task resets the chip (panic) instead
+    // of leaving the last PWM running forever. Default 5 s, not 2 s:
+    // sequential VL53 scans still take ~1.6 s, so a 2 s timeout would
+    // false-trip on slow sweeps; tighten to 2 s once parallel ranging
+    // (item 1.2) drops the monitor loop to ~100 ms. This is a software
+    // net only — the GĐ2 hardware ENA pull-down / heartbeat interlock
+    // is what guarantees the motor stops even across a reset.
+#ifndef CONFIG_TREADMILL_TASK_WDT_TIMEOUT_S
+#define CONFIG_TREADMILL_TASK_WDT_TIMEOUT_S 5
+#endif
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    {
+        esp_task_wdt_config_t wdt_cfg = {
+            .timeout_ms = CONFIG_TREADMILL_TASK_WDT_TIMEOUT_S * 1000,
+            .idle_core_mask = 0,
+            .trigger_panic = true,
+        };
+        ESP_ERROR_CHECK(esp_task_wdt_init(&wdt_cfg));
+    }
+#else
+    ESP_ERROR_CHECK(esp_task_wdt_init(CONFIG_TREADMILL_TASK_WDT_TIMEOUT_S, true));
+#endif
+    ESP_LOGI(tag, "task watchdog armed: %d s (safety_mon, safety_key)",
+             CONFIG_TREADMILL_TASK_WDT_TIMEOUT_S);
 
     ir_safety_init();
     safety_key_init();

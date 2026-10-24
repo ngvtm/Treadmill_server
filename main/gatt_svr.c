@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "sdkconfig.h"
+#include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "host/ble_hs.h"
@@ -302,9 +303,14 @@ static void safety_monitor_task(void *arg)
     ir_zone_t last_zone = IR_ZONE_NONE;
     bool have_last_zone = false;
     bool last_key_tripped = false;
+    bool last_fault_latched = false;
     TickType_t last_health_tick = 0;
 
+    // Phase 1, item 1.3: this task is watchdog-supervised (see app_main).
+    esp_task_wdt_add(NULL);
+
     while (1) {
+        esp_task_wdt_reset();
         /* Reed safety key trip: the motor is already hard-cut by
          * the trip callback; here we only owe the smartkey the alert
          * the moment the latch flips. */
@@ -331,6 +337,20 @@ static void safety_monitor_task(void *arg)
             last_health_tick = xTaskGetTickCount();
             zone = ir_safety_get_cached_zone();
         }
+
+        // Phase 1, item 1.3: a newly latched sensor fault is a serious
+        // fault, not a zone change — cut the motor HARD immediately
+        // instead of the controlled stop the DANGER zone would give.
+        // (The zone itself already reads DANGER while any sensor is
+        // blind, so this only upgrades the stop, it never adds one.)
+        bool fault_latched = ir_safety_is_fault_latched();
+        if (fault_latched && !last_fault_latched && running) {
+            ESP_LOGE(TAG, "SENSOR FAULT latched: hard cutoff");
+            treadmill_hard_cutoff();
+            gatt_svr_notify_status(TREADMILL_ALERT_DANGER,
+                                   ir_safety_get_cached_zone());
+        }
+        last_fault_latched = fault_latched;
 
         if (!have_last_zone || zone != last_zone) {
             have_last_zone = true;
