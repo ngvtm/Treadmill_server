@@ -102,6 +102,16 @@ tiếp điểm reed ~100–200 mΩ nối tiếp → sụt áp cỡ µV — khôn
 (gãy ngầm khó tìm); chung GND với dây nguồn motor (ground bounce → false trip); dây quá to
 (20AWG trở xuống: nặng, khó đi, không cần thiết vì dòng chỉ cỡ µA–mA).
 
+**Chân reed thủy tinh rất mỏng manh — dây 24AWG không được treo trực tiếp lên chân reed.**
+Reed bé (thân thủy tinh cỡ 2 mm, chân cỡ 0,5 mm hàn kín trong thủy tinh): về điện dây 24AWG là
+dư sức (dòng chỉ ~73 µA), nhưng về cơ học, để cặp dây + ống silicon treo lên chân reed thì
+lực kéo và rung máy sẽ nứt mối hàn thủy tinh → hỏng cảm biến. Cách làm đúng: **dock là ranh
+giới cơ học** — reed nằm cố định trong dock, dây được kẹp chặt vào vỏ dock (dây rút, keo, hoặc
+ốc siết cáp) ngay cửa ra, sao cho kéo dây thì lực vào vỏ dock chứ không vào chân reed. Mối hàn
+chân reed chỉ dài vài mm và được bọc co nhiệt + cố định ngay tại chỗ; ống silicon dừng ở cửa
+dock và cũng được kẹp, không luồn vào tới reed. Không bẻ chân reed sát thân thủy tinh (chừa
+≥3 mm, bẻ 1 lần nhẹ tay); không hơ súng nhiệt lâu trực tiếp lên thân thủy tinh.
+
 ### Vật tư mua cho đoạn dây này (đủ cho dock → hộp 30 cm + dự phòng)
 
 - **Dây silicone 24AWG lõi mềm: 1 m đỏ + 1 m đen** (xoắn 2 sợi lại thành cặp; 30 cm chạy thực tế,
