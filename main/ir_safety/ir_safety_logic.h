@@ -58,13 +58,18 @@ static inline bool ir_logic_status_usable(uint8_t status)
     return status == IR_RANGE_STATUS_VALID || status == 4;
 }
 
-// A sensor is "blind" when it is expected to work (enabled + active) but its
-// last read did not yield a trustworthy measurement. Covers I2C failure,
-// timeout, and persistent error statuses (e.g. status 2 after a bad recover).
-// Blind safety sensors must be treated as unsafe, never silently ignored.
+// A sensor is "blind" when it is expected to work (enabled) but cannot
+// currently be trusted: either it never came active / dropped out, or
+// its last read did not yield a trustworthy measurement (I2C failure,
+// timeout, persistent error statuses like 2 after a bad recover).
+// Blind safety sensors must be treated as unsafe, never silently
+// ignored. (Phase 1, 1.2 fix: previously an enabled sensor that went
+// INACTIVE — init failed, recovery exhausted — was simply skipped by
+// the zone logic, leaving a silent coverage hole while the belt kept
+// running. Inactive now counts as blind, so the zone fails closed.)
 static inline bool ir_logic_is_blind(const ir_sensor_reading_t *s)
 {
-    return s->enabled && s->active && !ir_logic_status_usable(s->status);
+    return s->enabled && (!s->active || !ir_logic_status_usable(s->status));
 }
 
 // A sensor reset back to the default I2C address is inferred when its assigned
@@ -147,6 +152,56 @@ static inline bool ir_logic_is_safe_to_run(const ir_sensor_reading_t *s,
         return false;
     }
     return ir_logic_calculate_zone(s, count, threshold_mm) == IR_ZONE_SAFE;
+}
+
+// ------------------------------------------------------------------
+// Per-sensor sample aging (Phase 1, item 1.2).
+//
+// In continuous mode a poll usually returns "no new sample yet" — the
+// sensor is mid-measurement, not broken. The glue therefore keeps the
+// previous sample, but only for a bounded window: a sensor that stops
+// producing fresh samples (no I2C error, just silence) must age into
+// blindness instead of freezing the last distance forever. A fresh
+// sample after aging recovers the sample itself; the 1.1 fault latch
+// is a separate, stickier state and is NOT cleared by this.
+// ------------------------------------------------------------------
+
+typedef struct {
+    uint32_t last_fresh_ms;
+    uint8_t  last_status;
+    bool     has_sample;
+} ir_sample_age_t;
+
+static inline void ir_sample_age_init(ir_sample_age_t *a)
+{
+    a->last_fresh_ms = 0;
+    a->last_status   = IR_RANGE_STATUS_TIMEOUT;  // blind until proven otherwise
+    a->has_sample    = false;
+}
+
+// Returns the status to store for this sensor after one poll cycle.
+// fresh=true carries the poll's status; fresh=false keeps the previous
+// status until stale_ms elapses without a fresh sample, then 254.
+static inline uint8_t ir_sample_age_update(ir_sample_age_t *a,
+                                           bool fresh,
+                                           uint8_t fresh_status,
+                                           uint32_t now_ms,
+                                           uint32_t stale_ms)
+{
+    if (fresh) {
+        a->has_sample    = true;
+        a->last_fresh_ms = now_ms;
+        a->last_status   = fresh_status;
+        return fresh_status;
+    }
+    if (!a->has_sample) {
+        return IR_RANGE_STATUS_TIMEOUT;
+    }
+    if (now_ms - a->last_fresh_ms > stale_ms) {
+        a->last_status = IR_RANGE_STATUS_TIMEOUT;
+        return IR_RANGE_STATUS_TIMEOUT;
+    }
+    return a->last_status;
 }
 
 // Zone to report while a safety sensor is blind: treat as DANGER so the

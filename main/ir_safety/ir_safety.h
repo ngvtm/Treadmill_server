@@ -34,6 +34,9 @@ bool ir_safety_is_safe(void);
 // fault refuses ON until a deliberate ON with healthy sensors acknowledges it.
 bool ir_safety_is_fault_latched(void);
 bool ir_safety_acknowledge_fault(void);
+// Phase 1, item 1.2: switch the VL53 array between the bench timing
+// budget (stopped) and the running budget (belt moving).
+void ir_safety_set_running_mode(bool running);
 void ir_safety_log_levels(void);
 void ir_safety_health_check(void);
 
