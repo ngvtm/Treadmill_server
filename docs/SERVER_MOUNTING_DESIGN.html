@@ -45,7 +45,7 @@ nếu tia quét ngang ở độ cao vướng tay vịn đối diện, cảm bi�
 Từ số đo đó em sẽ chốt lại: ngưỡng phát hiện mới theo công thức <i>ngưỡng ≈ chiều rộng băng × 1,024 + 35&nbsp;mm biên</i>
 (chỉnh bằng menuconfig <code>TREADMILL_VL53_DETECT_MAX_MM</code>, không sửa code) và độ cao gắn ray sao cho tia quét
 <b>đi trên dầm vàng nhưng vẫn cắt chân/người</b> của trẻ. Nếu băng chỉ ~350&nbsp;mm thì ngưỡng khoảng ~400&nbsp;mm
-và yêu cầu thoáng phía xa cũng chỉ còn ~450&nbsp;mm — nhưng con số cuối phải chờ số đo thật, không đoán từ ảnh.</div>
+và yêu cầu thoáng phía xa cũng chỉ còn ~450&nbsp;mm — nhưng con số cuối phải chờ số đo thật, không đoán từ ảnh. <b>Cập nhật:</b> anh đã gửi kích thước phủ bì <b>80×65×78&nbsp;cm</b> (em hiểu đơn vị là cm theo chuẩn bảng thông số sản phẩm) — con số 65&nbsp;cm này trùng với 650&nbsp;mm trong code, nhưng đó là rộng <b>phủ bì</b> cả khung, không phải rộng băng; rộng băng thật vẫn cần đo riêng (chỉ đo mặt băng chạy, mép này sang mép kia).</div>
 
 <h2>1. Sơ đồ nhìn từ trên xuống</h2>
 <p>Trước ở phía trên hình (đầu máy, bảng điều khiển), sau ở phía dưới (con lăn sau).
@@ -157,7 +157,7 @@ và yêu cầu thoáng phía xa cũng chỉ còn ~450&nbsp;mm — nhưng con s�
   <text x="318" y="152" text-anchor="middle" font-size="9" font-weight="700">ENC</text>
   <text x="20" y="300" font-size="12">Encoder: trục roller trước <tspan fill="#7a5b00">(đề xuất)</tspan> — A GPIO4 / B GPIO33</text>
   <!-- width warning -->
-  <text x="458" y="566" text-anchor="middle" font-size="12" font-weight="700" fill="#c00">Chiều rộng băng thực tế: ĐO VÀ XÁC NHẬN — code giả định 650 mm, ảnh cho thấy hẹp hơn nhiều (xem cảnh báo ở đầu file)</text>
+  <text x="458" y="566" text-anchor="middle" font-size="12" font-weight="700" fill="#c00">Phủ bì máy: 800×650×780 mm (theo thông số anh gửi) — chiều rộng BĂNG vẫn cần đo riêng (xem cảnh báo ở đầu file)</text>
   <!-- direction -->
   <text x="460" y="24" text-anchor="middle" font-size="13" font-weight="700">▲ TRƯỚC (đầu máy)</text>
   <text x="460" y="600" text-anchor="middle" font-size="13" font-weight="700">▼ SAU (con lăn sau)</text>
@@ -196,7 +196,7 @@ góc tia xem ở chi tiết A (mặt cắt ngang một cảm biến, nhìn từ 
   <!-- deck + belt -->
   <rect x="100" y="282" width="700" height="18" fill="#cccccc" stroke="#888"/>
   <line x1="100" y1="282" x2="800" y2="282" stroke="#333" stroke-width="2.5"/>
-  <text x="450" y="272" text-anchor="middle" font-size="12">mặt băng (dài/rộng thực tế: đo và xác nhận — code giả định 800×650 mm)</text>
+  <text x="450" y="272" text-anchor="middle" font-size="12">mặt băng (phủ bì máy 800×650×780 mm; rộng băng đo riêng — code giả định 800×650 mm)</text>
   <!-- rollers -->
   <circle cx="160" cy="300" r="22" fill="#fff" stroke="#333" stroke-width="1.5"/>
   <circle cx="740" cy="300" r="22" fill="#fff" stroke="#333" stroke-width="1.5"/>
@@ -445,7 +445,8 @@ không test trên trẻ; người lớn chỉ tự test giật puck ở tốc đ
   encoder gắn roller trước hay sau; chiều cao gắn cảm biến; vị trí chính xác của dock trên tay vịn;
   đường đi dây cụ thể; vị trí nguồn 24 V; <tr><td><b>Máy thật:</b> treadmill trẻ em cỡ nhỏ — khung vàng, tay vịn xanh cong 2 bên, thanh đỏ trước,
   console vàng tròn ở giữa thanh trước, băng hẹp, chân đen 4 góc</td><td>Ảnh anh gửi 2026-10-24 (3 ảnh máy)</td></tr>
-  <tr><td><b>Đang chờ anh đo:</b> dài × rộng băng; rộng phủ bì khung; cao tay vịn xanh tại vị trí cảm biến;
+  <tr><td><b>Kích thước phủ bì:</b> 80×65×78&nbsp;cm (dài × rộng × cao)</td><td>Thông số anh gửi 2026-10-24</td></tr>
+  <tr><td><b>Đang chờ anh đo:</b> rộng băng (mặt chạy, mép-mép); cao tay vịn xanh tại vị trí cảm biến;
   cao dầm vàng 2 bên; ray cảm biến đặt bên trái hay phải; hộp điều khiển đặt đâu; nguồn 24&nbsp;V đặt đâu</td><td>—</td></tr>
   kích thước băng thực tế (nếu khác 800×650 mm thì tỉ lệ hình này chỉ còn minh hoạ)</td><td>—</td></tr>
 </table>
