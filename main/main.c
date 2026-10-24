@@ -26,7 +26,9 @@ static const char *tag = "NimBLE_BLE_PRPH";
  * 2 = scan any / connect whitelist, 3 = scan whitelist / connect whitelist.
  * The bonding code below needs policy 2: anyone may scan, but only the
  * bonded smartkey in the whitelist may connect. */
+#ifndef BLE_GAP_ADV_FILTER_POLICY_SCAN_ANY_CONN_WL
 #define BLE_GAP_ADV_FILTER_POLICY_SCAN_ANY_CONN_WL 2
+#endif
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
 static uint8_t own_addr_type;
 
