@@ -1,6 +1,7 @@
 #include "treadmill.h"
 #include "motor/motor.h"
 #include "motor_feedback/motor_feedback.h"
+#include "settings/settings.h"
 #include "ir_safety/ir_safety.h"
 #include "safety_key/safety_key.h"
 #include "esp_log.h"
@@ -58,36 +59,53 @@ void treadmill_handle_command(uint8_t cmd)
 {
     switch (cmd) {
     case TREADMILL_CMD_ON: {
-        /* Breakaway safety key gate (checked before the VL53 gate):
-         * - tripped before: this deliberate ON acts as the
-         *   acknowledge, but only clears if the puck is docked again;
-         * - puck not docked at all: refuse to start. */
-        if (safety_key_is_tripped() && !safety_key_acknowledge()) {
-            ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, safety key tripped and not re-docked");
-            return;
-        }
-        if (!safety_key_is_present()) {
-            ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, safety key not docked");
-            return;
+        // Phase 2: each feature's ON gate applies only while that
+        // feature is enabled. Disabling reed skips the firmware key
+        // gates (the hardware ENA interlock still cuts without the
+        // puck — it cannot be disabled by software). Disabling IR
+        // skips the whole VL53 gate chain (latch, readiness, zone).
+        // The motor-fault gate below is NOT settable: it always runs.
+        if (settings_is_enabled(SETTINGS_FEATURE_REED)) {
+            /* Breakaway safety key gate (checked before the VL53 gate):
+             * - tripped before: this deliberate ON acts as the
+             *   acknowledge, but only clears if the puck is docked again;
+             * - puck not docked at all: refuse to start. */
+            if (safety_key_is_tripped() && !safety_key_acknowledge()) {
+                ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, safety key tripped and not re-docked");
+                return;
+            }
+            if (!safety_key_is_present()) {
+                ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, safety key not docked");
+                return;
+            }
         }
 
-        // Phase 1, item 1.1: a latched sensor fault refuses ON. One
-        // deliberate ON with healthy sensors acknowledges the latch
-        // (and proceeds, same pattern as the reed safety-key latch);
-        // while any safety sensor is still blind the latch stays.
-        if (ir_safety_is_fault_latched()) {
-            if (!ir_safety_acknowledge_fault()) {
-                ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, sensor fault latched and array still blind");
+        if (settings_is_enabled(SETTINGS_FEATURE_IR)) {
+            // Phase 1, item 1.1: a latched sensor fault refuses ON. One
+            // deliberate ON with healthy sensors acknowledges the latch
+            // (and proceeds, same pattern as the reed safety-key latch);
+            // while any safety sensor is still blind the latch stays.
+            if (ir_safety_is_fault_latched()) {
+                if (!ir_safety_acknowledge_fault()) {
+                    ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, sensor fault latched and array still blind");
+                    ir_safety_log_levels();
+                    return;
+                }
+                ESP_LOGI(TAG, "SENSOR FAULT acknowledged by ON; proceeding with ON checks");
+            }
+
+            if (!ir_safety_is_ready()) {
+                ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, VL53 safety not ready");
                 ir_safety_log_levels();
                 return;
             }
-            ESP_LOGI(TAG, "SENSOR FAULT acknowledged by ON; proceeding with ON checks");
-        }
 
-        if (!ir_safety_is_ready()) {
-            ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, VL53 safety not ready");
-            ir_safety_log_levels();
-            return;
+            ir_zone_t zone = ir_safety_get_zone();
+            if (zone != IR_ZONE_SAFE) {
+                ESP_LOGW(TAG, "SAFETY BLOCK: reject ON, zone=%s", zone_to_str(zone));
+                ir_safety_log_levels();
+                return;
+            }
         }
 
         // GĐ2: a latched motor fault (stall / overcurrent / no-motion)
@@ -96,13 +114,6 @@ void treadmill_handle_command(uint8_t cmd)
         if (motor_feedback_get_fault_kind() != MOTOR_FAULT_NONE) {
             ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, motor fault latched (kind=%d)",
                      (int)motor_feedback_get_fault_kind());
-            return;
-        }
-
-        ir_zone_t zone = ir_safety_get_zone();
-        if (zone != IR_ZONE_SAFE) {
-            ESP_LOGW(TAG, "SAFETY BLOCK: reject ON, zone=%s", zone_to_str(zone));
-            ir_safety_log_levels();
             return;
         }
 
@@ -267,4 +278,25 @@ bool treadmill_is_safety_key_present(void)
 bool treadmill_is_motor_fault(void)
 {
     return motor_feedback_get_fault_kind() != MOTOR_FAULT_NONE;
+}
+
+// Phase 2: SET_FEATURE payload byte = [feature_id (high nibble) |
+// enable (bit 0)]. Accepted only while stopped; every accepted change
+// is persisted to NVS and logged by settings_set_enabled. Returns
+// false when the id is unknown, the belt runs, or NVS fails — the
+// caller then notifies CMD_REJECTED with the unchanged mask.
+bool treadmill_handle_set_feature(uint8_t byte)
+{
+    uint8_t feature_id = (uint8_t)((byte >> 4) & 0x0F);
+    bool enable = (byte & 0x01) != 0;
+    if (!settings_feature_valid(feature_id)) {
+        ESP_LOGW(TAG, "SET_FEATURE: unknown feature id=%u", feature_id);
+        return false;
+    }
+    if (!settings_change_allowed(treadmill_is_running())) {
+        ESP_LOGW(TAG, "SET_FEATURE: refused while running (feature=%u)",
+                 feature_id);
+        return false;
+    }
+    return settings_set_enabled(feature_id, enable);
 }

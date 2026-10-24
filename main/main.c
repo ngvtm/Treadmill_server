@@ -5,6 +5,7 @@
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "motor_feedback/motor_feedback.h"
+#include "settings/settings.h"
 #include "host/ble_hs.h"
 #include "host/util/util.h"
 #include "console/console.h"
@@ -276,6 +277,7 @@ app_main(void)
 
     ir_safety_init();
     safety_key_init();
+    settings_init();
     treadmill_init();
     motor_feedback_init();
 
