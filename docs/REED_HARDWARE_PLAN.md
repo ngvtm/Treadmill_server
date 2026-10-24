@@ -102,6 +102,20 @@ tiếp điểm reed ~100–200 mΩ nối tiếp → sụt áp cỡ µV — khôn
 (gãy ngầm khó tìm); chung GND với dây nguồn motor (ground bounce → false trip); dây quá to
 (20AWG trở xuống: nặng, khó đi, không cần thiết vì dòng chỉ cỡ µA–mA).
 
+### Vật tư mua cho đoạn dây này (đủ cho dock → hộp 30 cm + dự phòng)
+
+- **Dây silicone 24AWG lõi mềm: 1 m đỏ + 1 m đen** (xoắn 2 sợi lại thành cặp; 30 cm chạy thực tế,
+  còn lại để bấm giắc, đi dây và dự phòng). Rẻ hơn: dây silicone 24AWG bán theo mét, mua 1 m mỗi màu.
+- **Ống silicon bọc ngoài đoạn dây: 1 m, đường kính trong 5 mm** (luồn cặp xoắn vào trong, chống mài
+  mòn + rung; đầu ống cố định bằng ống co nhiệt Ø6 mm hoặc dây rút). Từ khoá tìm mua: "ống silicon
+  bọc dây", "ống cao su silicon ID 5mm".
+- **Ống co nhiệt cho mối nối: hộp đủ cỡ 1,5–10 mm** (dùng Ø3 mm bọc mối hàn ở dock, Ø5–6 mm bọc
+  đầu ống silicon và đuôi giắc JST). Hơ bằng bật lửa hoặc máy sấy tóc ở nấc nóng, hơ đều tay.
+- **Giắc JST-XH 2,54 mm 2 chân: 2 bộ** (housing + chân bấm) cho đầu hộp; nếu không có kìm bấm JST
+  thì hàn dây trực tiếp vào chân giắc rồi bọc co nhiệt — chấp nhận được cho 1 bộ duy nhất.
+- Lưu ý mua: dây silicone thật có vỏ mềm như cao su, bẻ không gãy, chịu nhiệt hàn tốt; tránh dây
+  PVC cứng (vỏ bóng, bẻ gập kêu rắc) vì rung máy lâu ngày nứt vỏ.
+
 ### Giai đoạn 1 — làm ngay với 1 reed đang có (không sửa firmware)
 
 Dùng tiếp điểm duy nhất cho **đường B (firmware)**: reed nối
