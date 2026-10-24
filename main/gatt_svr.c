@@ -14,6 +14,7 @@
 #include "services/ans/ble_svc_ans.h"
 #include "treadmill/treadmill.h"
 #include "motor_feedback/motor_feedback.h"
+#include "settings/settings.h"
 #include "ir_safety/ir_safety.h"
 
 #define MAX_NOTIFY 5
@@ -36,6 +37,9 @@ typedef enum {
     TREADMILL_ALERT_MOTOR_FAULT,     /* = 7: stall / overcurrent / no-motion (GĐ2) */
 } treadmill_alert_t;
 
+// Phase 2: the 8th byte is features_off_mask (bit i set = feature i
+// OFF). Old clients reading 7 bytes keep working; new clients read
+// the mask to render the persistent safety-off warning.
 typedef struct __attribute__((packed)) {
     uint8_t type;
     uint8_t running;
@@ -44,13 +48,14 @@ typedef struct __attribute__((packed)) {
     uint8_t safety_limited;
     uint8_t zone;
     uint8_t alert;
+    uint8_t features_off_mask;
 } treadmill_status_msg_t;
 
 static const ble_uuid128_t gatt_svr_svc_uuid =
     BLE_UUID128_INIT(0x2d, 0x71, 0xa2, 0x59, 0xb4, 0x58, 0xc8, 0x12,
                      0x99, 0x99, 0x43, 0x95, 0x12, 0x2f, 0x46, 0x59);
 
-static uint8_t  gatt_svr_chr_val;
+static uint8_t  gatt_svr_chr_val[2];  // 1-byte commands, or 2-byte SET_FEATURE
 static uint16_t gatt_svr_chr_val_handle;
 static uint16_t gatt_svr_conn_handle = BLE_HS_CONN_HANDLE_NONE;
 static treadmill_status_msg_t gatt_svr_status_val = {
@@ -158,28 +163,44 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
         }
         uuid = ctxt->chr->uuid;
         if (attr_handle == gatt_svr_chr_val_handle) {
+            uint16_t written_len = 0;
             rc = gatt_svr_write(ctxt->om,
+                                1,  // 1-byte commands or 2-byte SET_FEATURE
                                 sizeof(gatt_svr_chr_val),
-                                sizeof(gatt_svr_chr_val),
-                                &gatt_svr_chr_val, NULL);
+                                &gatt_svr_chr_val, &written_len);
             if (rc == 0) {
-                treadmill_handle_command(gatt_svr_chr_val);
                 ir_zone_t zone = ir_safety_get_cached_zone();
-                if (gatt_svr_chr_val == TREADMILL_CMD_ON &&
-                    !treadmill_is_running()) {
-                    /* Name the real blocker: a pulled/missing safety
-                     * key is a different fix than a VL53 rejection,
-                     * and a motor fault is different again. */
-                    uint8_t alert =
-                        (treadmill_is_safety_key_tripped() ||
-                         !treadmill_is_safety_key_present())
-                            ? TREADMILL_ALERT_SAFETY_KEY_OUT
-                            : treadmill_is_motor_fault()
-                                ? TREADMILL_ALERT_MOTOR_FAULT
-                                : TREADMILL_ALERT_CMD_REJECTED;
-                    gatt_svr_notify_status(alert, zone);
+                if (written_len == 2 &&
+                    gatt_svr_chr_val[0] == TREADMILL_CMD_SET_FEATURE) {
+                    // Phase 2: SET_FEATURE. Accepted -> standard status
+                    // (with the new mask); refused -> CMD_REJECTED with
+                    // the unchanged mask, so the client's toggle UI
+                    // reverts to the server's truth.
+                    bool ok = treadmill_handle_set_feature(gatt_svr_chr_val[1]);
+                    gatt_svr_notify_status(
+                        ok ? alert_for_zone(zone) : TREADMILL_ALERT_CMD_REJECTED,
+                        zone);
+                } else if (written_len == 1) {
+                    treadmill_handle_command(gatt_svr_chr_val[0]);
+                    if (gatt_svr_chr_val[0] == TREADMILL_CMD_ON &&
+                        !treadmill_is_running()) {
+                        /* Name the real blocker: a pulled/missing safety
+                         * key is a different fix than a VL53 rejection,
+                         * and a motor fault is different again. */
+                        uint8_t alert =
+                            (treadmill_is_safety_key_tripped() ||
+                             !treadmill_is_safety_key_present())
+                                ? TREADMILL_ALERT_SAFETY_KEY_OUT
+                                : treadmill_is_motor_fault()
+                                    ? TREADMILL_ALERT_MOTOR_FAULT
+                                    : TREADMILL_ALERT_CMD_REJECTED;
+                        gatt_svr_notify_status(alert, zone);
+                    } else {
+                        gatt_svr_notify_status(TREADMILL_ALERT_NONE,
+                                               zone);
+                    }
                 } else {
-                    gatt_svr_notify_status(TREADMILL_ALERT_NONE,
+                    gatt_svr_notify_status(TREADMILL_ALERT_CMD_REJECTED,
                                            zone);
                 }
             }
@@ -237,6 +258,7 @@ static void gatt_svr_update_status(uint8_t alert, uint8_t zone)
     gatt_svr_status_val.safety_limited = treadmill_is_safety_limited() ? 1 : 0;
     gatt_svr_status_val.zone = zone;
     gatt_svr_status_val.alert = alert;
+    gatt_svr_status_val.features_off_mask = settings_get_off_mask();
 }
 
 void gatt_svr_notify_status(uint8_t alert, uint8_t zone)
