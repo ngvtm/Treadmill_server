@@ -161,6 +161,189 @@ static inline ir_zone_t ir_logic_effective_zone(const ir_sensor_reading_t *s,
     return ir_logic_calculate_zone(s, count, threshold_mm);
 }
 
+// ------------------------------------------------------------------
+// Temporal zone filter (Phase 1, item 1.1).
+//
+// The raw zone is one snapshot and flickers at threshold boundaries.
+// The filter below is ASYMMETRIC on purpose:
+//   - Escalation is INSTANT: any DANGER sample, or a move to a more
+//     severe warning level, is adopted on the very sample that shows it.
+//   - De-escalation is SLOW: a less severe zone must be sustained
+//     continuously for clean_ms before it is adopted, so a single clean
+//     sample in the middle of danger does not restore speed.
+//   - NONE (no person) is special: it is a stop condition, but a single
+//     NONE sample must NOT stop the belt (gait, one bad sweep). NONE is
+//     adopted only after none_confirm_ms of continuous NONE. While NONE
+//     is pending, the previous zone stands; any real zone cancels it.
+// Times are in milliseconds on a monotonic clock. The filter is
+// time-based (not sweep-count-based) on purpose: sweep duration changes
+// ~30x between sequential scans now and parallel scans later, so a
+// sweep count would mean different real times before/after that change.
+// ------------------------------------------------------------------
+
+typedef struct {
+    uint32_t clean_ms;         // sustained time required to de-escalate
+    uint32_t none_confirm_ms;  // sustained NONE required to adopt NONE
+} ir_zone_filter_cfg_t;
+
+typedef struct {
+    bool       initialized;
+    ir_zone_t  filtered;
+    ir_zone_t  pending_zone;   // de-escalation candidate, or IR_ZONE_NONE if none
+    uint32_t   pending_since_ms;
+    bool       none_pending;
+    uint32_t   none_since_ms;
+} ir_zone_filter_t;
+
+static inline void ir_zone_filter_init(ir_zone_filter_t *f)
+{
+    f->initialized      = false;
+    f->filtered         = IR_ZONE_NONE;
+    f->pending_zone     = IR_ZONE_NONE;
+    f->pending_since_ms = 0;
+    f->none_pending     = false;
+    f->none_since_ms    = 0;
+}
+
+// Severity rank for escalation comparisons. NONE is not ranked here:
+// it is handled by its own confirm window, never by instant escalation.
+static inline int ir_zone_severity(ir_zone_t z)
+{
+    switch (z) {
+    case IR_ZONE_SAFE:      return 0;
+    case IR_ZONE_WARNING_1: return 1;
+    case IR_ZONE_WARNING_2: return 2;
+    case IR_ZONE_DANGER:    return 3;
+    default:                return 3;
+    }
+}
+
+// Feed one raw (effective) zone sample. Returns the filtered zone.
+static inline ir_zone_t ir_zone_filter_update(ir_zone_filter_t *f,
+                                              ir_zone_t raw,
+                                              uint32_t now_ms,
+                                              const ir_zone_filter_cfg_t *cfg)
+{
+    // First sample after boot: adopt immediately, there is no history
+    // to be conservative against (the boot sequence already refreshes
+    // once before the ON gate reads the zone).
+    if (!f->initialized) {
+        f->initialized = true;
+        f->filtered    = raw;
+        return f->filtered;
+    }
+
+    // DANGER is always instant, from any previous zone.
+    if (raw == IR_ZONE_DANGER) {
+        f->filtered     = IR_ZONE_DANGER;
+        f->pending_zone = IR_ZONE_NONE;
+        f->none_pending = false;
+        return f->filtered;
+    }
+
+    // NONE: needs its own confirmation window; any real zone cancels it.
+    if (raw == IR_ZONE_NONE) {
+        if (f->filtered == IR_ZONE_NONE) {
+            return f->filtered;
+        }
+        if (!f->none_pending) {
+            f->none_pending  = true;
+            f->none_since_ms = now_ms;
+            return f->filtered;
+        }
+        if (now_ms - f->none_since_ms >= cfg->none_confirm_ms) {
+            f->filtered     = IR_ZONE_NONE;
+            f->none_pending = false;
+            f->pending_zone = IR_ZONE_NONE;
+        }
+        return f->filtered;
+    }
+
+    // A real zone cancels a pending NONE.
+    f->none_pending = false;
+
+    if (f->filtered == raw) {
+        f->pending_zone = IR_ZONE_NONE;
+        return f->filtered;
+    }
+
+    // Escalation to a more severe warning: instant.
+    if (ir_zone_severity(raw) > ir_zone_severity(f->filtered)) {
+        f->filtered     = raw;
+        f->pending_zone = IR_ZONE_NONE;
+        return f->filtered;
+    }
+
+    // De-escalation: the candidate zone must hold continuously for
+    // clean_ms. Any change of candidate restarts the timer.
+    if (f->pending_zone != raw) {
+        f->pending_zone     = raw;
+        f->pending_since_ms = now_ms;
+        return f->filtered;
+    }
+    if (now_ms - f->pending_since_ms >= cfg->clean_ms) {
+        f->filtered     = f->pending_zone;
+        f->pending_zone = IR_ZONE_NONE;
+    }
+    return f->filtered;
+}
+
+// ------------------------------------------------------------------
+// Sensor-fault latch (Phase 1, item 1.1).
+//
+// A sensor that goes blind for a few consecutive snapshots is a fault,
+// not a glitch: the latch sets and stays set even if the sensor recovers
+// on its own. Clearing requires an explicit acknowledge (the deliberate
+// ON command path) while the array is healthy again — the same pattern
+// as the reed safety-key latch. The latch is evaluated on snapshots,
+// not time, because a blind sensor produces no trustworthy samples at
+// all: counting snapshots is the honest unit here.
+// ------------------------------------------------------------------
+
+typedef struct {
+    bool     latched;
+    uint32_t blind_streak;  // consecutive snapshots with any safety sensor blind
+} ir_fault_latch_t;
+
+static inline void ir_fault_latch_init(ir_fault_latch_t *l)
+{
+    l->latched      = false;
+    l->blind_streak = 0;
+}
+
+// Feed one snapshot's "any safety sensor blind" flag. Returns true if
+// the latch is set after this snapshot.
+static inline bool ir_fault_latch_update(ir_fault_latch_t *l,
+                                         bool any_safety_sensor_blind,
+                                         uint32_t latch_after_snapshots)
+{
+    if (any_safety_sensor_blind) {
+        l->blind_streak++;
+        if (l->blind_streak >= latch_after_snapshots) {
+            l->latched = true;
+        }
+    } else {
+        l->blind_streak = 0;
+    }
+    return l->latched;
+}
+
+// Acknowledge a latched fault. Succeeds only while no safety sensor is
+// blind right now; a still-blind array keeps the latch (and the ON gate
+// keeps refusing) until the hardware is actually healthy again.
+static inline bool ir_fault_latch_acknowledge(ir_fault_latch_t *l,
+                                              bool any_safety_sensor_blind)
+{
+    if (!l->latched) {
+        return true;
+    }
+    if (any_safety_sensor_blind) {
+        return false;
+    }
+    l->latched = false;
+    return true;
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -138,6 +138,26 @@ static uint32_t s_reset_count[SENSOR_COUNT] = {};
 static uint32_t s_last_reset_ms[SENSOR_COUNT] = {};
 static uint32_t s_recover_count[SENSOR_COUNT] = {};
 
+// Phase 1, item 1.1: asymmetric temporal zone filter + sensor-fault latch.
+// Tuned via menuconfig (Treadmill Configuration menu); defaults below are
+// the Phase 1 plan values. The filter is time-based, not sweep-count-based,
+// because sweep duration changes ~30x once parallel ranging (item 1.2) lands.
+#ifndef CONFIG_TREADMILL_ZONE_CLEAN_MS
+#define CONFIG_TREADMILL_ZONE_CLEAN_MS 500
+#endif
+#ifndef CONFIG_TREADMILL_ZONE_NONE_CONFIRM_MS
+#define CONFIG_TREADMILL_ZONE_NONE_CONFIRM_MS 400
+#endif
+#ifndef CONFIG_TREADMILL_FAULT_BLIND_LATCH_SNAPSHOTS
+#define CONFIG_TREADMILL_FAULT_BLIND_LATCH_SNAPSHOTS 5
+#endif
+static ir_zone_filter_t s_zone_filter = {};
+static ir_fault_latch_t s_fault_latch = {};
+static const ir_zone_filter_cfg_t s_zone_filter_cfg = {
+    .clean_ms = CONFIG_TREADMILL_ZONE_CLEAN_MS,
+    .none_confirm_ms = CONFIG_TREADMILL_ZONE_NONE_CONFIRM_MS,
+};
+
 static uint64_t xshut_pin_mask(void)
 {
     uint64_t mask = 0;
@@ -587,11 +607,57 @@ static void build_snapshot(ir_sensor_reading_t out[SENSOR_COUNT])
     }
 }
 
+// Raw effective zone -> fault-latch update -> temporal filter.
+// Every caller (get_zone, health_check) goes through this one path, so
+// the filtered zone is the only zone the rest of the firmware ever sees.
 static ir_zone_t calculate_zone_from_snapshot(void)
 {
     ir_sensor_reading_t snap[SENSOR_COUNT];
     build_snapshot(snap);
-    return ir_logic_effective_zone(snap, SENSOR_COUNT, VL53_DETECT_MAX_MM);
+    ir_zone_t raw = ir_logic_effective_zone(snap, SENSOR_COUNT, VL53_DETECT_MAX_MM);
+    bool blind = ir_logic_any_safety_sensor_blind(snap, SENSOR_COUNT);
+    bool was_latched = s_fault_latch.latched;
+    ir_fault_latch_update(&s_fault_latch, blind,
+                          CONFIG_TREADMILL_FAULT_BLIND_LATCH_SNAPSHOTS);
+    if (!was_latched && s_fault_latch.latched) {
+        ESP_LOGE(TAG, "SENSOR FAULT LATCHED: safety sensor blind %u consecutive snapshots; "
+                      "ON refused until a deliberate ON with healthy sensors acknowledges it",
+                 (unsigned)s_fault_latch.blind_streak);
+    }
+    uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+    return ir_zone_filter_update(&s_zone_filter, raw, now_ms, &s_zone_filter_cfg);
+}
+
+bool ir_safety_is_fault_latched(void)
+{
+    return s_fault_latch.latched;
+}
+
+// Acknowledge a latched sensor fault. Refreshes the array first so a
+// sensor that recovered since the last snapshot is seen as healthy and
+// one deliberate ON both acknowledges and proceeds (same pattern as the
+// reed safety-key latch). Returns false while any safety sensor is still
+// blind — the latch (and the ON refusal) then stays in place.
+bool ir_safety_acknowledge_fault(void)
+{
+    if (!s_fault_latch.latched) {
+        return true;
+    }
+    if (s_read_mutex != nullptr) {
+        xSemaphoreTake(s_read_mutex, portMAX_DELAY);
+    }
+    refresh_all_sensors();
+    ir_sensor_reading_t snap[SENSOR_COUNT];
+    build_snapshot(snap);
+    bool blind = ir_logic_any_safety_sensor_blind(snap, SENSOR_COUNT);
+    if (s_read_mutex != nullptr) {
+        xSemaphoreGive(s_read_mutex);
+    }
+    bool ok = ir_fault_latch_acknowledge(&s_fault_latch, blind);
+    if (ok) {
+        ESP_LOGI(TAG, "SENSOR FAULT acknowledged: array healthy again");
+    }
+    return ok;
 }
 
 void ir_safety_init(void)

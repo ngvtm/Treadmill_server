@@ -104,6 +104,38 @@ menu "Treadmill Configuration"
             reads ~666 mm slant range). Still being tuned on the
             bench — change here instead of editing ir_safety.cpp.
 
+    config TREADMILL_ZONE_CLEAN_MS
+        int "Zone filter: time a safer zone must hold before adoption (ms)"
+        default 500
+        range 0 5000
+        help
+            Phase 1 item 1.1 (asymmetric zone filter): escalation to
+            a more severe zone is instant, but de-escalation requires
+            the safer zone to hold continuously for this long, so a
+            single clean sample mid-danger does not restore speed.
+            Time-based, not sweep-count-based: sweep duration changes
+            ~30x once parallel ranging lands.
+
+    config TREADMILL_ZONE_NONE_CONFIRM_MS
+        int "Zone filter: time NONE must hold before it stops the belt (ms)"
+        default 400
+        range 0 5000
+        help
+            Phase 1 item 1.1: a single NONE (no person) sample must
+            not stop the belt (gait, one bad sweep). NONE is adopted
+            only after this long of continuous NONE; any real zone
+            during the window cancels it.
+
+    config TREADMILL_FAULT_BLIND_LATCH_SNAPSHOTS
+        int "Sensor-fault latch: consecutive blind snapshots before latching"
+        default 5
+        range 1 50
+        help
+            Phase 1 item 1.1: a safety sensor blind for this many
+            consecutive snapshots latches a fault. The latch stays
+            set even if the sensor recovers, and ON is refused until
+            a deliberate ON with healthy sensors acknowledges it.
+
 endmenu
 
 menu "Treadmill Safety Key"
