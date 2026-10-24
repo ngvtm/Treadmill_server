@@ -437,7 +437,7 @@ tín hiệu. Độ dài ước tính dưới đây tính từ phương án hộp
   <tr><td><b>Nguồn 24&nbsp;V</b> → L298N</td><td>Theo vị trí nguồn (chưa chốt)</td><td>Cùng cỡ dây motor (18AWG trở xuống)</td><td>Dòng = dòng motor → cùng công thức sụt áp như trên.</td><td><b>Khả thi</b> khi nguồn đặt gần hộp; nguồn đặt xa thì tính lại sụt áp theo dài thực tế.</td></tr>
   <tr><td><b>Encoder</b> A/B → ESP32 (PCNT)</td><td>~30&nbsp;cm (roller trước → hộp)</td><td>Cặp xoắn với GND hoặc cáp shield; pull-up nội đã bật; <b>không</b> đưa 5&nbsp;V vào GPIO</td>
   <td>Xung chậm (tần số xung thấp theo tốc băng), PCNT có lọc nhiễu 12,5&nbsp;µs → nhiễu và điện dung dây <b>không ảnh hưởng</b> ở 30&nbsp;cm.</td><td><b>Khả thi.</b></td></tr>
-  <tr><td><b>Reed đường B</b> dock → GPIO23 (+ tụ 100&nbsp;nF)</td><td>~50–70&nbsp;cm (thanh trước → hộp)</td><td>Cặp xoắn với GND</td>
+  <tr><td><b>Reed đường B</b> dock → GPIO23 (+ tụ 100&nbsp;nF)</td><td>~30&nbsp;cm (giả định của anh, thanh trước → hộp) — cặp xoắn 24AWG lõi mềm, 1 sợi GPIO23 + 1 sợi GND, giắc JST-XH 2 chân ở đầu hộp (xem chi tiết tính toán trong REED_HARDWARE_PLAN.md mục 3)</td><td>Cặp xoắn với GND</td>
   <td>Mức logic DC, dòng pull-up ~µA–mA → sụt áp trên dây 24AWG (~0,084&nbsp;Ω/m) chỉ cỡ <b>µV</b>; tụ 100&nbsp;nF tại board chống nhiễu.</td><td><b>Khả thi.</b></td></tr>
   <tr><td><b>Reed đường A</b> GPIO5 PWM 5&nbsp;kHz → tiếp điểm → AND → ENA</td><td>Ngắn (trong hộp + ra dock)</td><td>Dây thường, đi gọn trong hộp</td>
   <td>Tiếp điểm reed ~100–200&nbsp;mΩ nối tiếp vào đầu vào logic ENA (dòng ~µA) → sụt áp cỡ <b>µV</b>; PWM 5&nbsp;kHz trên dây &lt; 1&nbsp;m không cần tính truyền sóng.</td><td><b>Khả thi.</b></td></tr>

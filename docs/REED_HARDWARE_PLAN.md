@@ -70,6 +70,38 @@ nữa** (cùng loại) hoặc đổi sang **1 reed SPDT**. Lý do ở bước 3.
 
 ## 3. Đấu dây — 2 giai đoạn (quan trọng: đừng đi tắt)
 
+### Thiết kế dây nối dock → ESP32 (cụ thể — giả định dây dài 30 cm)
+
+Phân biệt 2 đoạn dây khác nhau, đừng lẫn: **(a)** dây cố định từ dock trên thanh trước về hộp ESP32
+(đoạn này mới là câu hỏi "dùng dây gì", giả định dài 30 cm); **(b)** dây xoắn co giãn từ puck tới kẹp áo
+(đoạn này chỉ chịu lực cơ học khi bứt, không mang điện — xem mục 2).
+
+**Đường B — firmware (làm ngay): cặp xoắn 24AWG lõi mềm (stranded), 1 sợi GPIO23 + 1 sợi GND.**
+Vì sao loại này, tính ra sao ở 30 cm:
+- Tín hiệu là mức logic DC, dòng qua pull-up nội ESP32 (~45 kΩ) chỉ ~73 µA. Sụt áp trên dây:
+  24AWG = 84 mΩ/m, đi+về 0,6 m = 0,05 Ω → 73 µA × 0,05 Ω ≈ **4 µV — không đáng kể**.
+- Điện dung cặp xoắn ~50–100 pF/m × 0,3 m = 15–30 pF — so với tụ 100 nF đã mắc tại board thì
+  không ảnh hưởng gì (tín hiệu DC, không có timing).
+- Nhiễu mới là thứ cần lo, không phải sụt áp: xoắn đôi triệt nhiễu cảm ứng từ PWM motor, tụ 100 nF
+  tại đầu board lọc phần còn lại, và dây đi nẹp riêng, tách khỏi dây nguồn motor.
+- Về điện, gần như dây tín hiệu nào cũng chạy được ở 30 cm; chọn 24AWG lõi mềm vì bền cơ học,
+  dễ bấm giắc, không quá to làm nặng dock. Giắc: **JST-XH 2,54 mm 2 chân ở đầu hộp** (tháo được khi
+  bảo trì); đầu dock hàn + co nhiệt chống rung. Nếu đoạn dây phải đi sát motor (dưới ~10 cm):
+  dùng cặp xoắn có shield, shield nối GND **chỉ ở đầu hộp** (không nối 2 đầu — tránh vòng mass).
+
+**Đường A — cắt cứng (giai đoạn 2): cặp xoắn 24AWG riêng**, cùng cách tính: đoạn này gồm
+ESP32 → dock rồi dock → cổng AND → ENA; tín hiệu là PWM 5 kHz vào đầu vào logic (dòng ~µA),
+tiếp điểm reed ~100–200 mΩ nối tiếp → sụt áp cỡ µV — không vấn đề. Pull-down 10 kΩ mắc ở chân ENA
+(đầu L298N), không mắc ở dock.
+
+**Dài hơn 30 cm thì sao:** cùng loại dây này chạy tốt tới ~1 m cho đường B (sụt áp vẫn cỡ µV,
+điện dung ~100 pF vẫn << 100 nF). Quá 1 m về điện vẫn chạy nhưng phải kiểm tra nhiễu thực tế
+(rung máy + PWM motor) bằng test bứt 100 lần không false trip.
+
+**Không dùng:** dây đơn không kèm GND (thành anten hút nhiễu motor); dây lõi cứng ở chỗ rung/gập
+(gãy ngầm khó tìm); chung GND với dây nguồn motor (ground bounce → false trip); dây quá to
+(20AWG trở xuống: nặng, khó đi, không cần thiết vì dòng chỉ cỡ µA–mA).
+
 ### Giai đoạn 1 — làm ngay với 1 reed đang có (không sửa firmware)
 
 Dùng tiếp điểm duy nhất cho **đường B (firmware)**: reed nối
