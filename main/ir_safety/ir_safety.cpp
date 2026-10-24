@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "VL53L0X.h"
+#include "vl53_continuous.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "esp_err.h"
@@ -25,7 +26,26 @@ static constexpr uint32_t I2C_TIMEOUT_MS = 100;
 // Timing budget: HIGHER = more samples = more sensitive, LESS noise (fewer
 // st=2). 200000us (200ms) is the low-noise end — use this to find the true
 // minimum mount height, tested at the same budget you will actually run.
-static constexpr uint32_t VL53_TIMING_BUDGET_US = 200000;
+// Phase 1, item 1.2: two timing budgets (menuconfig "Treadmill
+// Configuration"). Bench keeps the old 200 ms single-shot-era value so
+// raw-distance logging stays calm; running drops to 50 ms, which is
+// what makes the whole-array snapshot fast enough for the 300 ms
+// danger-to-stop budget (see refresh_sensor).
+#ifndef CONFIG_TREADMILL_VL53_BENCH_BUDGET_US
+#define CONFIG_TREADMILL_VL53_BENCH_BUDGET_US 200000
+#endif
+#ifndef CONFIG_TREADMILL_VL53_RUNNING_BUDGET_US
+#define CONFIG_TREADMILL_VL53_RUNNING_BUDGET_US 50000
+#endif
+static uint32_t s_current_budget_us = CONFIG_TREADMILL_VL53_BENCH_BUDGET_US;
+// A sensor that stops producing fresh samples ages into blindness
+// after this long without one: 500 ms floor, or 4x the current budget
+// when the budget is larger (bench mode). See ir_sample_age_update.
+static uint32_t sample_stale_ms(void)
+{
+    uint32_t four_budgets_ms = (s_current_budget_us / 1000) * 4;
+    return four_budgets_ms > 500 ? four_budgets_ms : 500;
+}
 // Detection threshold for the SIDE-RAIL / CROSS-SCAN geometry:
 // sensors sit on a rail running along the belt length and look ACROSS the belt.
 // Each sensor is one vertical slice cutting the belt width.
@@ -61,8 +81,6 @@ static constexpr uint16_t VL53_DETECT_MAX_MM = CONFIG_TREADMILL_VL53_DETECT_MAX_
 static constexpr uint32_t XSHUT_RESET_MS = 800;
 static constexpr uint32_t XSHUT_BOOT_MS = 800;
 static constexpr uint32_t STANDARD_INIT_ATTEMPTS = 4;
-static constexpr uint32_t READ_ATTEMPTS = 3;
-static constexpr uint32_t READ_RETRY_DELAY_MS = 30;
 // Set to 1 while bench-testing mount height: HEALTH prints EVERY cycle with raw
 // distances so you can watch d change as you lower a sensor. Set back to 0 for
 // normal use (prints only on zone change) so it does not flood motor/BLE logs.
@@ -124,10 +142,12 @@ static constexpr ir_role_t SENSOR_ROLE[SENSOR_COUNT] = {
     IR_ROLE_DANGER,     // S7
 };
 
-static VL53L0X *s_sensors[SENSOR_COUNT] = {};
+static VL53L0XContinuous *s_sensors[SENSOR_COUNT] = {};
 static bool s_sensor_active[SENSOR_COUNT] = {};
 static uint16_t s_distance_mm[SENSOR_COUNT] = {};
 static uint8_t s_range_status[SENSOR_COUNT] = {};
+static ir_sample_age_t s_sample_age[SENSOR_COUNT] = {};
+static uint32_t s_last_recover_ms = 0;
 static bool s_detected[SENSOR_COUNT] = {};
 static bool s_initialized = false;
 static bool s_ready = false;
@@ -403,7 +423,7 @@ static bool init_one_sensor(size_t index)
         return false;
     }
 
-    VL53L0X *sensor = s_sensors[index];
+    VL53L0XContinuous *sensor = s_sensors[index];
 
     set_xshut_level(index, 1);
     vTaskDelay(pdMS_TO_TICKS(XSHUT_BOOT_MS));
@@ -421,9 +441,16 @@ static bool init_one_sensor(size_t index)
                 set_xshut_level(index, 0);
                 return false;
             }
-            sensor->setTimingBudget(VL53_TIMING_BUDGET_US);
+            sensor->setTimingBudget(s_current_budget_us);
+            if (!sensor->startContinuous()) {
+                ESP_LOGE(TAG, "S%u continuous start failed at 0x%02X",
+                         (unsigned)index, SENSOR_ADDRS[index]);
+                set_xshut_level(index, 0);
+                return false;
+            }
             s_sensor_active[index] = true;
-            ESP_LOGI(TAG, "S%u ready at 0x%02X", (unsigned)index, SENSOR_ADDRS[index]);
+            ESP_LOGI(TAG, "S%u ready at 0x%02X (continuous, budget=%" PRIu32 " us)",
+                     (unsigned)index, SENSOR_ADDRS[index], s_current_budget_us);
             return true;
         }
 
@@ -449,7 +476,7 @@ static bool init_one_sensor(size_t index)
         set_xshut_level(index, 0);
         return false;
     }
-    sensor->setTimingBudget(VL53_TIMING_BUDGET_US);
+    sensor->setTimingBudget(s_current_budget_us);
 
     if (!sensor->setDeviceAddress(SENSOR_ADDRS[index])) {
         ESP_LOGE(TAG, "S%u address change failed: 0x%02X -> 0x%02X",
@@ -465,8 +492,16 @@ static bool init_one_sensor(size_t index)
         return false;
     }
 
+    if (!sensor->startContinuous()) {
+        ESP_LOGE(TAG, "S%u continuous start failed at 0x%02X",
+                 (unsigned)index, SENSOR_ADDRS[index]);
+        set_xshut_level(index, 0);
+        return false;
+    }
+
     s_sensor_active[index] = true;
-    ESP_LOGI(TAG, "S%u ready at 0x%02X", (unsigned)index, SENSOR_ADDRS[index]);
+    ESP_LOGI(TAG, "S%u ready at 0x%02X (continuous, budget=%" PRIu32 " us)",
+             (unsigned)index, SENSOR_ADDRS[index], s_current_budget_us);
     return true;
 }
 
@@ -519,10 +554,19 @@ static void recover_lost_sensors(void)
             s_sensor_active[i] = false;
             continue;
         }
-        s_sensors[i]->setTimingBudget(VL53_TIMING_BUDGET_US);
+        s_sensors[i]->setTimingBudget(s_current_budget_us);
         if (!s_sensors[i]->setDeviceAddress(SENSOR_ADDRS[i]) ||
             !is_vl53l0x(SENSOR_ADDRS[i])) {
             ESP_LOGW(TAG, "S%u auto-recover: address change failed",
+                     (unsigned)i);
+            s_sensor_active[i] = false;
+            continue;
+        }
+        // A recovered sensor must rejoin continuous mode, or it would
+        // sit active with no samples (and age into blindness on the
+        // next sweeps, which is safe but pointless).
+        if (!s_sensors[i]->startContinuous()) {
+            ESP_LOGW(TAG, "S%u auto-recover: continuous restart failed",
                      (unsigned)i);
             s_sensor_active[i] = false;
             continue;
@@ -533,66 +577,110 @@ static void recover_lost_sensors(void)
         ESP_LOGI(TAG, "S%u auto-recover OK at 0x%02X recover_count=%" PRIu32,
                  (unsigned)i, SENSOR_ADDRS[i], s_recover_count[i]);
     }
+
+    // Second phase (1.2): sensors still on their address but producing
+    // no usable samples — continuous mode stopped, not an address loss.
+    // Restart them in place (stop/set/start at the current budget);
+    // no XSHUT dance needed. A sensor that still fails drops to
+    // inactive, which the 1.2 is_blind fix counts as blind downstream.
+    for (size_t i = 0; i < SENSOR_COUNT; i++) {
+        if (!SENSOR_ENABLED[i] || !s_sensor_active[i] ||
+            s_sensors[i] == nullptr) {
+            continue;
+        }
+        if (ir_logic_status_usable(s_range_status[i])) {
+            continue;
+        }
+        if (!i2c_probe(SENSOR_ADDRS[i])) {
+            continue;  // address-lost path above handles this next round
+        }
+        if (!s_sensors[i]->setContinuousBudget(s_current_budget_us)) {
+            ESP_LOGW(TAG, "S%u auto-recover: continuous restart failed (present but blind)",
+                     (unsigned)i);
+            s_sensor_active[i] = false;
+            continue;
+        }
+        ir_sample_age_init(&s_sample_age[i]);
+        ESP_LOGI(TAG, "S%u auto-recover: continuous restarted at 0x%02X",
+                 (unsigned)i, SENSOR_ADDRS[i]);
+    }
 }
 
+// Phase 1, item 1.2: parallel (continuous) refresh. Each sensor ranges
+// on its own in back-to-back mode, so one sweep is 8 quick register
+// polls (~5 ms total) instead of 8 sequential single-shot measurements
+// (~1.6 s at the old 200 ms budget). Latency budget while running:
+//   sensor budget 50 ms + poll cycle ~5 ms + monitor loop 100 ms
+//   + instant danger escalation in the 1.1 filter
+//   = ~155 ms worst case from danger entry to motor stop starting,
+//   inside the 300 ms hard target (belt travel at max speed < 0.5 m).
+// Returns false when the sensor is not producing usable data right
+// now. Note the deliberate change from the old code: status 4
+// (out-of-range, a real reading) is usable and does NOT count as
+// failure — the old code treated it as failed and re-ran recovery on
+// every sweep for a sensor legitimately seeing nothing.
 static bool refresh_sensor(size_t index)
 {
     s_detected[index] = false;
-    s_distance_mm[index] = 0;
-    s_range_status[index] = 255;
 
     if (!s_sensor_active[index] || s_sensors[index] == nullptr) {
+        // Inactive but enabled: the 1.2 is_blind fix counts this as
+        // blind downstream, so the zone fails closed instead of
+        // silently losing coverage.
+        s_range_status[index] = 254;
+        s_distance_mm[index] = 0;
         return false;
     }
 
     uint16_t distance = 0;
     uint8_t status = 255;
-    bool ok = false;
-    uint32_t attempts_used = 0;
-    for (uint32_t attempt = 1; attempt <= READ_ATTEMPTS; attempt++) {
-        attempts_used = attempt;
-        ok = s_sensors[index]->readWithStatus(&distance, &status);
-        if (ok || (status != 253 && status != 254)) {
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(READ_RETRY_DELAY_MS));
+    bool fresh = s_sensors[index]->pollContinuous(&distance, &status);
+    uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+    if (fresh) {
+        s_distance_mm[index] = distance;
     }
-    s_distance_mm[index] = distance;
-    s_range_status[index] = status;
+    s_range_status[index] = ir_sample_age_update(
+        &s_sample_age[index], fresh, status, now_ms, sample_stale_ms());
+
     // Detection gated on a VALID status (not just an in-range distance), via
     // the same pure predicate the unit tests exercise.
     ir_sensor_reading_t r = {
         .role = SENSOR_ROLE[index],
         .enabled = SENSOR_ENABLED[index],
         .active = s_sensor_active[index],
-        .status = status,
-        .distance_mm = distance,
+        .status = s_range_status[index],
+        .distance_mm = s_distance_mm[index],
     };
     s_detected[index] = ir_logic_is_detected(&r, VL53_DETECT_MAX_MM);
-    if (ok) {
-        s_read_error_count[index] = 0;
-    } else if (status == 253 || status == 254) {
-        log_runtime_i2c_diagnostic(index, status, attempts_used);
-    }
-    return ok;
-}
 
-// Inter-sensor delay in the scan loop. Lower = faster full-array scan.
-static constexpr uint32_t SCAN_INTER_SENSOR_MS = 5;
+    bool blind_now = !ir_logic_status_usable(s_range_status[index]);
+    if (fresh && (status == 253 || status == 254)) {
+        // The diagnostic itself throttles (first 3, then every 10th),
+        // so a dead sensor does not drown the log at ~8 lines/second.
+        log_runtime_i2c_diagnostic(index, status, 1);
+    }
+    return !blind_now;
+}
 
 static void refresh_all_sensors(void)
 {
     bool any_failed = false;
     for (size_t i = 0; i < SENSOR_COUNT; i++) {
-        if (!refresh_sensor(i) && SENSOR_ENABLED[i] && s_sensor_active[i]) {
+        if (!refresh_sensor(i) && SENSOR_ENABLED[i]) {
             any_failed = true;
         }
-        vTaskDelay(pdMS_TO_TICKS(SCAN_INTER_SENSOR_MS));
     }
-    // Recover once per sweep, not per sensor: a glitch usually takes several
-    // sensors down together and they must be re-addressed as a group.
+    // Recovery is throttled: a dead sensor used to trigger a full
+    // XSHUT re-init dance on every sweep (hundreds of ms of I2C
+    // traffic while the belt should be stopping). At most one attempt
+    // per 5 s; meanwhile the zone already reads DANGER because the
+    // sensor counts as blind, so throttling costs no safety.
     if (any_failed) {
-        recover_lost_sensors();
+        uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+        if (now_ms - s_last_recover_ms >= 5000) {
+            s_last_recover_ms = now_ms;
+            recover_lost_sensors();
+        }
     }
 }
 
@@ -626,6 +714,45 @@ static ir_zone_t calculate_zone_from_snapshot(void)
     }
     uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
     return ir_zone_filter_update(&s_zone_filter, raw, now_ms, &s_zone_filter_cfg);
+}
+
+// Phase 1, item 1.2: switch the array between bench and running
+// timing budgets. Running uses the short budget (50 ms) so snapshots
+// stay fresh; stopped uses the bench budget (200 ms) so raw-distance
+// logging stays calm. No-op when already on the target budget, and
+// safe to call before init (guarded by s_initialized). A sensor whose
+// restart fails drops to inactive — fail-closed via the 1.2 is_blind
+// fix, and the throttled recovery will retry it within 5 s.
+void ir_safety_set_running_mode(bool running)
+{
+    if (!s_initialized) {
+        return;
+    }
+    uint32_t target = running ? CONFIG_TREADMILL_VL53_RUNNING_BUDGET_US
+                              : CONFIG_TREADMILL_VL53_BENCH_BUDGET_US;
+    if (target == s_current_budget_us) {
+        return;
+    }
+    if (s_read_mutex != nullptr) {
+        xSemaphoreTake(s_read_mutex, portMAX_DELAY);
+    }
+    for (size_t i = 0; i < SENSOR_COUNT; i++) {
+        if (!SENSOR_ENABLED[i] || !s_sensor_active[i] ||
+            s_sensors[i] == nullptr) {
+            continue;
+        }
+        if (!s_sensors[i]->setContinuousBudget(target)) {
+            ESP_LOGE(TAG, "S%u budget switch to %" PRIu32 " us failed; marking inactive",
+                     (unsigned)i, target);
+            s_sensor_active[i] = false;
+        }
+    }
+    s_current_budget_us = target;
+    if (s_read_mutex != nullptr) {
+        xSemaphoreGive(s_read_mutex);
+    }
+    ESP_LOGI(TAG, "VL53 budget switched to %" PRIu32 " us (%s)",
+             target, running ? "running" : "bench");
 }
 
 bool ir_safety_is_fault_latched(void)
@@ -669,11 +796,16 @@ void ir_safety_init(void)
     }
 
     for (size_t i = 0; i < SENSOR_COUNT; i++) {
-        s_sensors[i] = new (std::nothrow) VL53L0X(I2C_PORT_NUM, GPIO_NUM_MAX, GPIO_NUM_MAX);
+        s_sensors[i] = new (std::nothrow) VL53L0XContinuous(I2C_PORT_NUM, GPIO_NUM_MAX, GPIO_NUM_MAX);
         if (s_sensors[i] == nullptr) {
             ESP_LOGE(TAG, "Failed to allocate VL53L0X object S%u", (unsigned)i);
             continue;
         }
+        // Blind until the first continuous sample arrives: a zero-init
+        // status 0 would read as "valid" with distance 0 and could
+        // mask a sensor that never starts producing.
+        s_range_status[i] = 254;
+        ir_sample_age_init(&s_sample_age[i]);
     }
 
     if (s_sensors[0] != nullptr) {

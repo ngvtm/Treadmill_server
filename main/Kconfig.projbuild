@@ -143,12 +143,36 @@ menu "Treadmill Configuration"
         help
             Phase 1 item 1.3: safety_monitor and safety_key tasks must
             feed the task watchdog within this time or the chip resets
-            (panic). Default 5 s, not 2 s, because sequential VL53 scans
-            still take ~1.6 s and a 2 s timeout would false-trip on slow
-            sweeps; tighten to 2 s once parallel ranging (item 1.2)
-            drops the monitor loop to ~100 ms. Software net only —
-            the GĐ2 hardware ENA pull-down is what guarantees the motor
-            stops even across a reset.
+            (panic). Default 5 s, not 2 s: parallel ranging (item 1.2)
+            dropped the normal monitor loop to ~105 ms, but a sensor
+            recovery round (XSHUT 800 ms per sensor, several sensors)
+            can legitimately exceed 2 s, and the watchdog is
+            deliberately NOT fed during recovery — a recovery that
+            never returns while the belt runs must reset the chip.
+            Do not tighten below the worst-case recovery time.
+            Software net only — the GĐ2 hardware ENA pull-down is
+            what guarantees the motor stops even across a reset.
+
+    config TREADMILL_VL53_BENCH_BUDGET_US
+        int "VL53 timing budget while stopped/bench (microseconds)"
+        default 200000
+        range 20000 400000
+        help
+            Phase 1 item 1.2: per-sensor ranging budget in continuous
+            mode while the belt is stopped. 200 ms is the old
+            single-shot-era value, kept so raw-distance bench logging
+            stays calm.
+
+    config TREADMILL_VL53_RUNNING_BUDGET_US
+        int "VL53 timing budget while running (microseconds)"
+        default 50000
+        range 20000 200000
+        help
+            Phase 1 item 1.2: per-sensor ranging budget in continuous
+            mode while the belt moves. 50 ms keeps a full-array
+            snapshot fresh enough for the 300 ms danger-to-stop
+            target. Lower is faster but noisier; ST's usable floor
+            is around 20 ms.
 
 endmenu
 

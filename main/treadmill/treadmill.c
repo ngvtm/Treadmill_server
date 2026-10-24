@@ -18,6 +18,11 @@ static void treadmill_reset_stopped_state(void)
     s_speed = 0;
     s_requested_speed = TREADMILL_SPEED_DEFAULT;
     s_safety_limited = false;
+    // Phase 1, item 1.2: every stop (OFF, DANGER, NO_PERSON, hard
+    // cutoff) returns the VL53 array to the calm bench budget. This
+    // function is the single funnel for all stops, so no stop path
+    // can forget the switch.
+    ir_safety_set_running_mode(false);
 }
 
 static const char *zone_to_str(ir_zone_t zone)
@@ -98,6 +103,11 @@ void treadmill_handle_command(uint8_t cmd)
         s_speed = s_requested_speed;
         s_running = true;
         s_safety_limited = false;
+
+        // Phase 1, item 1.2: the belt is about to move — switch the
+        // VL53 array to the short running budget so snapshots stay
+        // fresh enough for the 300 ms danger-to-stop target.
+        ir_safety_set_running_mode(true);
 
         motor_set_direction(MOTOR_DIR_FORWARD);
         motor_ramp_to_speed(s_speed, TREADMILL_RAMP_NORMAL_MS);
