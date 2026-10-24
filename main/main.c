@@ -7,6 +7,7 @@
 #include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "bleprph.h"
+#include "host/ble_sm.h"
 #include "ir_safety/ir_safety.h"
 #include "treadmill/treadmill.h"
 
@@ -68,6 +69,24 @@ bleprph_advertise(void)
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
 
+    /* Đã có smartkey được cặp rồi thì chỉ cho đúng key đó kết nối:
+     * nạp danh sách peer đã bond vào whitelist và chỉ nhận kết nối
+     * từ whitelist. Chưa có bond nào (lần đầu / sau khi unpair) thì
+     * mở cho mọi kết nối để thực hiện pairing lần đầu. */
+    {
+        ble_addr_t wl_addrs[8];
+        int wl_num = 0;
+        int wl_rc = ble_store_util_bonded_peers(wl_addrs, &wl_num, 8);
+        if (wl_rc == 0 && wl_num > 0) {
+            if (ble_gap_wl_set(wl_addrs, wl_num) == 0) {
+                adv_params.filter_policy =
+                    BLE_GAP_ADV_FILTER_POLICY_SCAN_ANY_CONN_WL;
+                MODLOG_DFLT(INFO, "advertise: whitelist active, %d bonded peer(s)\n",
+                            wl_num);
+            }
+        }
+    }
+
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, bleprph_gap_event, NULL);
     if (rc != 0) {
@@ -95,7 +114,14 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
             assert(rc == 0);
             bleprph_print_conn_desc(&desc);
             gatt_svr_set_connection(event->connect.conn_handle);
-            /* Không gọi security_initiate — không dùng encryption */
+            /* Yêu cầu mã hoá/bonding ngay sau khi kết nối. Lần đầu:
+             * hai bên pairing và LTK được lưu vào store. Lần sau:
+             * liên kết được mã hoá lại bằng LTK đã lưu, không pairing
+             * lại. Kết quả về ở BLE_GAP_EVENT_ENC_CHANGE. */
+            rc = ble_gap_security_initiate(event->connect.conn_handle);
+            if (rc != 0) {
+                MODLOG_DFLT(ERROR, "security_initiate failed; rc=%d\n", rc);
+            }
         } else {
             bleprph_advertise();
         }
@@ -112,6 +138,18 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_CONN_UPDATE:
         MODLOG_DFLT(INFO, "connection updated; status=%d\n",
                     event->conn_update.status);
+        return 0;
+
+    case BLE_GAP_EVENT_ENC_CHANGE:
+        MODLOG_DFLT(INFO, "encryption change; status=%d\n",
+                    event->enc_change.status);
+        if (event->enc_change.status != 0) {
+            /* Không mã hoá được = không tin cậy: ngắt. Lệnh điều khiển
+             * chỉ đi qua characteristic yêu cầu encryption (xem
+             * gatt_svr.c), nhưng ngắt hẳn tại đây cho chắc. */
+            ble_gap_terminate(event->enc_change.conn_handle,
+                              BLE_ERR_REM_USER_CONN_TERM);
+        }
         return 0;
 #endif
 
@@ -171,8 +209,10 @@ bleprph_on_sync(void)
         return;
     }
 
-    /* ★ Gọi SAU khi host đã sẵn sàng */
-    ble_store_clear();
+    /* ★ KHÔNG được xoá store ở đây: ble_store_clear() chạy mỗi lần boot sẽ
+     * xoá toàn bộ LTK/bond đã lưu trong NVS, khiến pairing không bao giờ
+     * sống qua một lần khởi động lại. Đây là gốc rễ của lỗi "không lưu
+     * được key". Bond chỉ bị xoá khi unpair chủ động (xem README/BLE). */
 
     uint8_t addr_val[6] = {0};
     ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
@@ -218,13 +258,17 @@ app_main(void)
     ble_hs_cfg.gatts_register_cb = gatt_svr_register_cb;
     ble_hs_cfg.store_status_cb   = ble_store_util_status_rr;
 
-    /* ★ FIX: Tắt hoàn toàn bonding/security */
-    ble_hs_cfg.sm_bonding        = 0;
+    /* Bảo mật: bật bonding + LE Secure Connections, phân phối cả khoá
+     * mã hoá (ENC) lẫn khoá định danh (ID) thì LTK/địa chỉ peer mới được
+     * ghi vào store và dùng lại ở lần kết nối sau. sm_mitm = 0 (Just
+     * Works) vì cả 2 thiết bị đều không có bàn phím; muốn chống nghe
+     * trộm chủ động (MITM) thì nâng cấp passkey ở phase sau. */
+    ble_hs_cfg.sm_bonding        = 1;
     ble_hs_cfg.sm_mitm           = 0;
-    ble_hs_cfg.sm_sc             = 0;
+    ble_hs_cfg.sm_sc             = 1;
     ble_hs_cfg.sm_io_cap         = BLE_HS_IO_NO_INPUT_OUTPUT;
-    ble_hs_cfg.sm_our_key_dist   = 0;
-    ble_hs_cfg.sm_their_key_dist = 0;
+    ble_hs_cfg.sm_our_key_dist   = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
 
 #if MYNEWT_VAL(BLE_GATTS)
     rc = gatt_svr_init();
