@@ -1,5 +1,6 @@
 #include "safety_key.h"
 #include "safety_key_logic.h"
+#include "blackbox/blackbox.h"
 
 #include "sdkconfig.h"
 #include "driver/gpio.h"
@@ -60,6 +61,7 @@ static void safety_key_task(void *arg)
         }
         if (events & SK_EVENT_TRIPPED) {
             ESP_LOGE(TAG, "SAFETY KEY PULLED - fall interlock tripped");
+            blackbox_record(BLACKBOX_EVT_REED_TRIP, 0);
             if (s_trip_cb) {
                 s_trip_cb();
             }

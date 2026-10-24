@@ -6,6 +6,7 @@
 #include "nimble/nimble_port_freertos.h"
 #include "motor_feedback/motor_feedback.h"
 #include "settings/settings.h"
+#include "blackbox/blackbox.h"
 #include "host/ble_hs.h"
 #include "host/util/util.h"
 #include "console/console.h"
@@ -275,6 +276,9 @@ app_main(void)
     ESP_LOGI(tag, "task watchdog armed: %d s (safety_mon, safety_key)",
              CONFIG_TREADMILL_TASK_WDT_TIMEOUT_S);
 
+    // GĐ4: black box first — before any task that can record events.
+    blackbox_setup();
+    blackbox_dump();
     ir_safety_init();
     safety_key_init();
     settings_init();

@@ -2,6 +2,7 @@
 #include "motor/motor.h"
 #include "motor_feedback/motor_feedback.h"
 #include "settings/settings.h"
+#include "blackbox/blackbox.h"
 #include "ir_safety/ir_safety.h"
 #include "safety_key/safety_key.h"
 #include "esp_log.h"
@@ -133,6 +134,7 @@ void treadmill_handle_command(uint8_t cmd)
         motor_set_direction(MOTOR_DIR_FORWARD);
         motor_ramp_to_speed(s_speed, TREADMILL_RAMP_NORMAL_MS);
 
+        blackbox_record(BLACKBOX_EVT_ON, s_speed);
         ESP_LOGI(TAG, "ON: speed=%d/%d", s_speed, TREADMILL_SPEED_MAX);
         break;
     }
@@ -140,6 +142,7 @@ void treadmill_handle_command(uint8_t cmd)
     case TREADMILL_CMD_OFF:
         motor_controlled_stop(MOTOR_STOP_NORMAL_STEP_MS);
         treadmill_reset_stopped_state();
+        blackbox_record(BLACKBOX_EVT_OFF, 0);
         ESP_LOGI(TAG, "OFF: controlled stop complete");
         break;
 
@@ -242,6 +245,7 @@ void treadmill_hard_cutoff(void)
 {
     motor_hard_cutoff();
     treadmill_reset_stopped_state();
+    blackbox_record(BLACKBOX_EVT_HARD_CUTOFF, 0);
     ESP_LOGE(TAG, "HARD CUTOFF: treadmill stopped immediately");
 }
 

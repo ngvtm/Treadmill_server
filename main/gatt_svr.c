@@ -15,6 +15,7 @@
 #include "treadmill/treadmill.h"
 #include "motor_feedback/motor_feedback.h"
 #include "settings/settings.h"
+#include "blackbox/blackbox.h"
 #include "ir_safety/ir_safety.h"
 
 #define MAX_NOTIFY 5
@@ -364,6 +365,7 @@ static void safety_monitor_task(void *arg)
                      (int)motor_fault,
                      motor_feedback_get_belt_speed_mm_s(),
                      motor_feedback_get_current_ma());
+            blackbox_record(BLACKBOX_EVT_MOTOR_FAULT, (uint8_t)motor_fault);
             if (running) {
                 treadmill_hard_cutoff();
             }
@@ -393,17 +395,25 @@ static void safety_monitor_task(void *arg)
         // (The zone itself already reads DANGER while any sensor is
         // blind, so this only upgrades the stop, it never adds one.)
         bool fault_latched = ir_safety_is_fault_latched();
-        if (fault_latched && !last_fault_latched && running) {
-            ESP_LOGE(TAG, "SENSOR FAULT latched: hard cutoff");
-            treadmill_hard_cutoff();
-            gatt_svr_notify_status(TREADMILL_ALERT_DANGER,
-                                   ir_safety_get_cached_zone());
+        if (fault_latched && !last_fault_latched) {
+            // Recorded on the rising edge whether running or not: a
+            // latch while stopped still blocks the next ON.
+            blackbox_record(BLACKBOX_EVT_FAULT_LATCH, 0);
+            if (running) {
+                ESP_LOGE(TAG, "SENSOR FAULT latched: hard cutoff");
+                treadmill_hard_cutoff();
+                gatt_svr_notify_status(TREADMILL_ALERT_DANGER,
+                                       ir_safety_get_cached_zone());
+            }
         }
         last_fault_latched = fault_latched;
 
         if (!have_last_zone || zone != last_zone) {
             have_last_zone = true;
             last_zone = zone;
+            if (zone == IR_ZONE_DANGER) {
+                blackbox_record(BLACKBOX_EVT_ZONE_DANGER, (uint8_t)zone);
+            }
 
             // Motor action only applies while running; the handler itself is a
             // no-op when stopped, but the alert goes out either way.

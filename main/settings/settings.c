@@ -1,4 +1,5 @@
 #include "settings.h"
+#include "blackbox/blackbox.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
@@ -84,6 +85,8 @@ bool settings_set_enabled(uint8_t feature_id, bool enable)
     s_off_mask = enable
         ? settings_mask_set_on(s_off_mask, feature_id)
         : settings_mask_set_off(s_off_mask, feature_id);
+    blackbox_record(BLACKBOX_EVT_SETTINGS,
+                    (uint8_t)((feature_id << 4) | (enable ? 1 : 0)));
     ESP_LOGI(TAG, "EVENT: feature %u (%s) -> %s, off_mask=0x%02X",
              feature_id, SETTINGS_KEYS[feature_id],
              enable ? "ON" : "OFF", s_off_mask);
