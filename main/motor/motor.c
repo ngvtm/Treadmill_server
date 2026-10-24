@@ -1,4 +1,5 @@
 #include "motor.h"
+#include "motor_calibration.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_log.h"
@@ -12,12 +13,9 @@ static motor_dir_t s_direction = MOTOR_DIR_COAST;
 
 static uint32_t speed_to_duty(uint8_t speed)
 {
-    if (speed == 0) return 0;
-    if (speed > MOTOR_SPEED_MAX) speed = MOTOR_SPEED_MAX;
-
-    uint32_t duty_min = (uint32_t)(0.20f * 1023);
-    uint32_t duty_max = 1023;
-    return duty_min + (duty_max - duty_min) * speed / MOTOR_SPEED_MAX;
+    /* Duty theo bang calibrate (motor_calibration.h); ban mac dinh
+     * tai tao dung cong thuc tuyen tinh cu cho den khi co so do. */
+    return motor_cal_duty_for_speed(speed);
 }
 
 void motor_init(void)
