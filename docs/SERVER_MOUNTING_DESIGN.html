@@ -42,8 +42,7 @@ Bản vẽ bằng SVG (không phải ảnh AI). <b>Cập nhật 2026-10-24 theo 
 <p>Trước ở phía trên hình (đầu máy, bảng điều khiển), sau ở phía dưới (con lăn sau).
 8 cảm biến nằm trên <b>ray dọc theo băng, quét ngang qua băng</b> — mỗi cảm biến là một lát cắt ngang qua chiều rộng băng
 <span class="tag tag-code">TỪ CODE</span>. Thứ tự trước→sau: SAFE → WARNING_1 → WARNING_2 → DANGER
-<span class="tag tag-code">TỪ CODE</span>. Ray đặt bên trái hay phải thì code không nói
-<span class="tag tag-prop">ĐỀ XUẤT: ray trái</span>.</p>
+<span class="tag tag-code">TỪ CODE</span>. Ray đặt <b>bên trái</b> <span class="tag tag-code">ANH XÁC NHẬN 2026-10-24</span>.</p>
 
 <svg viewBox="0 0 940 640" role="img" aria-label="So do nhin tu tren xuong - may tre em">
   <!-- control box -->
@@ -204,7 +203,7 @@ góc tia xem ở chi tiết A (mặt cắt ngang một cảm biến, nhìn từ 
   <text x="258" y="109" text-anchor="middle" font-size="10" font-weight="700">DOCK</text>
   <!-- sensor rail -->
   <rect x="100" y="208" width="700" height="10" fill="#bbbbbb" stroke="#888"/>
-  <text x="450" y="200" text-anchor="middle" font-size="12">RAY CẢM BIẾN — dọc theo băng <tspan fill="#7a5b00">(đề xuất ray trái, nhìn từ bên)</tspan></text>
+  <text x="450" y="200" text-anchor="middle" font-size="12">RAY CẢM BIẾN — dọc theo băng <tspan fill="#7a5b00">(ray trái — đã xác nhận, nhìn từ bên)</tspan></text>
   <!-- sensors on rail -->
   <g font-size="10" font-weight="700" text-anchor="middle">
     <rect x="157" y="218" width="26" height="20" rx="3" fill="#2e9e4f" stroke="#333"/><text x="170" y="232" fill="#fff">S0</text>
@@ -351,7 +350,62 @@ không chĩa vào băng <span class="tag tag-code">TỪ CODE</span>. Chiều cao
 Thứ tự tín hiệu tới ENA: ESP32 GPIO5 (PWM) → tiếp điểm reed (đường A) → cổng AND (với Q của 74HC123) → ENA của L298N;
 song song đó, GPIO23 đọc trạng thái reed qua đường B để firmware latch và báo alert.</p>
 
-<h2>4. Ghi chú lắp đặt</h2>
+<h2>4. Ba điểm cần xác minh (theo anh — số liệu cụ thể chưa cần vội)</h2>
+<p>Anh đã chốt ray cảm biến <b>bên trái</b>. Ba điểm dưới đây là những gì anh muốn xác minh — mỗi điểm em đưa
+phương án chính kèm lý do và cách kiểm tra trên máy thật, chưa chốt số đo chi tiết.</p>
+
+<h3>4.1. ESP32 đặt ở đâu (cả hộp điều khiển)</h3>
+<p><b>Phương án chính: gầm trước, phía trái, dưới mặt băng</b> — gần cùng lúc 4 thứ nó phải nối tới:</p>
+<ul>
+  <li><b>Motor DS400 ở đầu trước:</b> dây ENA/IN1/IN2 ngắn nhất (đây là dây dòng lớn, càng ngắn càng đỡ nhiễu và sụt áp).</li>
+  <li><b>Đầu trước ray trái:</b> bus I2C + 8 dây XSHUT + nguồn đi từ hộp ra ray là ngắn nhất, không phải vòng qua máy.</li>
+  <li><b>Encoder roller trước:</b> dây A/B ngắn, gần hộp.</li>
+  <li><b>Dock reed trên thanh trước:</b> dây dock về hộp đi ngắn theo cột trước.</li>
+  <li><b>BLE tới smartkey:</b> hộp phải là <b>nhựa, không phải hộp kim loại kín</b> — sóng BLE cần thoát ra; đặt hộp sao cho
+  phía anten ESP32 không bị khung kim loại che kín.</li>
+  <li>Hộp có lỗ thông gió cho L298N, kê đệm chống rung (không bắt cứng sát motor), chừa mặt cắm USB/serial và nút reset
+  để debug — đừng chôn hộp vào chỗ phải tháo cả máy mới với tới.</li>
+</ul>
+<p><b>Phương án dự phòng:</b> gầm trước chính giữa (nếu gầm trái không đủ chỗ) — dây dài hơn một chút nhưng vẫn chấp nhận được.
+<b>Kiểm tra trên máy thật:</b> nhìn gầm trước bên trái có khoảng trống cho hộp không, motor nằm giữa hay lệch một bên,
+và từ hộp có luồn dây gọn ra ray trái + cột trước được không.</p>
+
+<h3>4.2. Cụm IR đặt ở đâu</h3>
+<ul>
+  <li><b>Ray riêng bên trái, chạy suốt chiều dài băng</b> <span class="tag tag-code">ANH XÁC NHẬN</span> — 8 cảm biến
+  xếp trước→sau S0→S7, zone SAFE → WARNING_1 → WARNING_2 → DANGER, tia quét ngang qua băng
+  (hình 1 và hình 2 vẽ đúng bố cục này).</li>
+  <li>Ray là thanh riêng bắt vào dầm vàng trái (hoặc chân đế riêng nếu dầm trái không có mặt phẳng bắt) —
+  chi tiết bắt ray chốt sau khi xem khung thật, chưa cần số vội.</li>
+  <li>Cáp ray (I2C + XSHUT + nguồn) đi từ <b>đầu trước ray</b> về hộp theo nẹp riêng, <b>không bó chung dây nguồn motor</b>.</li>
+</ul>
+<p><b>Kiểm tra trên máy thật:</b> dầm vàng trái có mặt phẳng để bắt ray không, và đầu trước ray có đi dây gọn về hộp
+gầm trước-trái được không.</p>
+
+<h3>4.3. Reed nối như thế nào</h3>
+<p>Dock bắt trên <b>thanh đỏ trước, cạnh console</b> — đúng tầm tay trẻ vịn, xa motor DC. Puck nam châm kẹp áo + dây xoắn.
+Reed có <b>2 đường độc lập</b> cùng làm việc trên 1 nam châm:</p>
+<ul>
+  <li><b>Đường B — firmware (làm ngay với 1 reed đang có):</b> tiếp điểm reed một đầu → <b>GPIO23</b>, đầu kia → <b>GND</b>;
+  tụ 100&nbsp;nF mắc GPIO23 → GND ở đầu board; firmware bật pull-up nội. Nam châm gắn = GPIO23 mức thấp = được phép chạy;
+  bứt puck = mức cao = firmware hard cutoff + báo alert SAFETY_KEY_OUT + latch (gắn lại + bấm ON mới chạy tiếp).</li>
+  <li><b>Đường A — cắt cứng phần cứng (giai đoạn 2, khi có tiếp điểm thứ 2 hoặc reed SPDT):</b> tiếp điểm nối tiếp trên đường
+  <b>GPIO5 (PWM 5&nbsp;kHz) → cổng AND (với Q của 74HC123) → ENA</b> của L298N, kèm pull-down 10&nbsp;kΩ ở ENA.
+  Mất heartbeat hoặc bứt puck đều cắt ENA bằng phần cứng, kể cả khi ESP32 treo.</li>
+  <li><b>Không dùng chung 1 tiếp điểm cho cả 2 đường</b> bằng cách chích GPIO23 tại nút PWM→ENA — nút đó mang xung 5&nbsp;kHz,
+  không phải mức logic ổn định, firmware đọc sẽ loạn (xem <code>REED_HARDWARE_PLAN.md</code>).</li>
+</ul>
+<p><b>Kiểm tra trên máy thật:</b> thanh đỏ trước có chỗ bắt dock chắc không, dây dock đi về hộp theo đường nào,
+và giắc nối dock dùng loại nào (đề xuất JST-XH 2 chân hoặc terminal vít để tháo được khi cần).</p>
+
+<table>
+  <tr><th>Điểm cần xác minh</th><th>Phương án chính</th><th>Kiểm tra bằng cách</th></tr>
+  <tr><td>ESP32 / hộp điều khiển</td><td>Gầm trước, phía trái, dưới mặt băng, hộp nhựa có thông gió</td><td>Nhìn khoảng trống gầm trước-trái; vị trí motor; đường dây ra ray trái + cột trước</td></tr>
+  <tr><td>Cụm IR</td><td>Ray riêng bên trái, suốt chiều dài băng, S0→S7 trước→sau</td><td>Mặt phẳng bắt ray trên dầm trái; đường cáp đầu trước ray về hộp</td></tr>
+  <tr><td>Reed</td><td>Dock trên thanh đỏ trước cạnh console; đường B (GPIO23→GND + tụ 100nF) làm ngay, đường A (nối tiếp PWM→ENA) giai đoạn 2</td><td>Chỗ bắt dock; đường dây dock về hộp; loại giắc nối</td></tr>
+</table>
+
+<h2>5. Ghi chú lắp đặt</h2>
 
 <h3>Hộp điều khiển (ESP32 + L298N + INA219 + interlock)</h3>
 <ul>
@@ -401,7 +455,7 @@ song song đó, GPIO23 đọc trạng thái reed qua đường B để firmware 
 <div class="warn"><b>An toàn khi lắp và test:</b> ngắt nguồn motor trước khi đấu dây; test ngã/rơi chỉ dùng búp bê/hình nộm,
 không test trên trẻ; người lớn chỉ tự test giật puck ở tốc độ thấp nhất, đứng trên thanh ray 2 bên, tay vịn chắc.</div>
 
-<h2>5. Checklist kiểm tra sau khi lắp</h2>
+<h2>6. Checklist kiểm tra sau khi lắp</h2>
 <ol>
   <li><b>Băng trống, chưa chạy:</b> mọi cảm biến đọc &gt;&nbsp;700&nbsp;mm hoặc status 4; zone = NONE; không cảm biến nào mù.
   Nếu có cảm biến kẹt dưới ngưỡng → dời vật cản hoặc chỉnh góc/đế.</li>
@@ -419,7 +473,7 @@ không test trên trẻ; người lớn chỉ tự test giật puck ở tốc đ
   REED_TRIP/MOTOR_FAULT tương ứng với những gì vừa test.</li>
 </ol>
 
-<h2>6. Nguồn thông tin và điểm cần anh xác nhận</h2>
+<h2>7. Nguồn thông tin và điểm cần anh xác nhận</h2>
 <table>
   <tr><th>Nội dung</th><th>Nguồn</th></tr>
   <tr><td>Vai trò 8 cảm biến 2-2-2-2, thứ tự trước→sau SAFE→DANGER</td><td>Code: <code>ir_safety.h</code>, <code>SENSOR_ROLE</code> trong <code>ir_safety.cpp</code></td></tr>
@@ -427,7 +481,7 @@ không test trên trẻ; người lớn chỉ tự test giật puck ở tốc đ
   <tr><td>Ray dọc băng, quét ngang; đế 77,5°, trục +12,5°, cone ±12,5°; băng 800×650 mm; ngưỡng 700 mm; vật cản ≥780 mm; băng trống &gt;700 mm hoặc status 4</td><td>Code: ghi chú geometry trong <code>ir_safety.cpp</code></td></tr>
   <tr><td>ENA GPIO5, IN1 GPIO18, IN2 GPIO19; encoder A GPIO4/B GPIO33; INA219 0x40 nối tiếp +24 V; heartbeat GPIO12 + 74HC123 ~250 ms + AND; pull-down 10 kΩ</td><td>Tài liệu: <code>MOTOR_FEEDBACK_DESIGN.md</code></td></tr>
   <tr><td>Dock reed ở tay vịn/bảng điều khiển phía trước, xa motor DC; đường B GPIO23→GND + tụ 100 nF; đường A nối tiếp PWM→ENA</td><td>Tài liệu: <code>REED_SAFETY_KEY_DESIGN.md</code>, <code>REED_HARDWARE_PLAN.md</code></td></tr>
-  <tr><td><b>Cần anh xác nhận theo khung máy thật:</b> ray cảm biến bên trái hay phải; vị trí hộp điều khiển; encoder gắn roller trước hay sau; vị trí chính xác của dock trên tay vịn; đường đi dây cụ thể; vị trí nguồn 24&nbsp;V (băng 800×650&nbsp;mm đã xác nhận; khoảng cách cảm biến + góc chếch do anh tính — không thay đổi)</td><td>—</td></tr>
+  <tr><td><b>Cần anh xác minh theo khung máy thật:</b> vị trí hộp điều khiển (đề xuất gầm trước-trái); chi tiết bắt ray trái; vị trí chính xác của dock trên thanh trước; đường đi dây cụ thể; vị trí nguồn 24&nbsp;V; encoder gắn roller trước hay sau (ray trái, băng 800×650&nbsp;mm, spacing + góc chếch đã chốt — số liệu cụ thể chưa cần vội)</td><td>—</td></tr>
   kích thước băng thực tế (nếu khác 800×650 mm thì tỉ lệ hình này chỉ còn minh hoạ)</td><td>—</td></tr>
 </table>
 
