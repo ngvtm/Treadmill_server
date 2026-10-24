@@ -9,7 +9,6 @@
 #include "blackbox/blackbox.h"
 #include "host/ble_hs.h"
 #include "host/util/util.h"
-#include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "bleprph.h"
 #include "host/ble_sm.h"
