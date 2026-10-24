@@ -1,5 +1,6 @@
 #include "treadmill.h"
 #include "motor/motor.h"
+#include "motor_feedback/motor_feedback.h"
 #include "ir_safety/ir_safety.h"
 #include "safety_key/safety_key.h"
 #include "esp_log.h"
@@ -86,6 +87,15 @@ void treadmill_handle_command(uint8_t cmd)
         if (!ir_safety_is_ready()) {
             ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, VL53 safety not ready");
             ir_safety_log_levels();
+            return;
+        }
+
+        // GĐ2: a latched motor fault (stall / overcurrent / no-motion)
+        // refuses ON until its cooldown expires. The monitor task
+        // keeps the fault state fresh, so this read is current.
+        if (motor_feedback_get_fault_kind() != MOTOR_FAULT_NONE) {
+            ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, motor fault latched (kind=%d)",
+                     (int)motor_feedback_get_fault_kind());
             return;
         }
 
@@ -252,4 +262,9 @@ bool treadmill_is_safety_key_tripped(void)
 bool treadmill_is_safety_key_present(void)
 {
     return safety_key_is_present();
+}
+
+bool treadmill_is_motor_fault(void)
+{
+    return motor_feedback_get_fault_kind() != MOTOR_FAULT_NONE;
 }

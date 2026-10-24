@@ -163,6 +163,131 @@ menu "Treadmill Configuration"
             single-shot-era value, kept so raw-distance bench logging
             stays calm.
 
+menu "Treadmill Motor Feedback"
+
+    config TREADMILL_ENCODER_GPIO_A
+        int "Encoder channel A GPIO"
+        default 4
+        range 0 39
+        help
+            Encoder pulse input (PCNT). Non-strapping GPIO with an
+            internal pull-up. Must not clash with XSHUT, I2C, motor
+            or safety-key pins.
+
+    config TREADMILL_ENCODER_GPIO_B
+        int "Encoder channel B GPIO (direction level)"
+        default 33
+        range 0 39
+        help
+            Encoder direction input: its level selects whether PCNT
+            counts A edges up or down.
+
+    config TREADMILL_ENCODER_PULSES_PER_REV
+        int "Encoder pulses per motor/belt revolution"
+        default 20
+        range 1 10000
+        help
+            PLACEHOLDER until measured: depends on the encoder wheel
+            and any gearing between it and the belt roller. Needed
+            only for the belt-speed estimate, not for stall detection.
+
+    config TREADMILL_BELT_LOOP_MM
+        int "Full belt loop length (mm)"
+        default 2800
+        range 100 10000
+        help
+            PLACEHOLDER until measured: the loop length, not the deck
+            length. Needed only for the belt-speed estimate.
+
+    config TREADMILL_INA219_ADDR
+        int "INA219 I2C address (decimal: 0x40 = 64)"
+        default 64
+        range 64 67
+        help
+            INA219 on the shared VL53 I2C bus (SDA 21 / SCL 22).
+            A0/A1 strapping selects 0x40-0x43.
+
+    config TREADMILL_INA219_SHUNT_MOHM
+        int "INA219 shunt resistor (milliohms)"
+        default 100
+        range 1 1000
+        help
+            The common INA219 module uses 0.1 ohm (100). With the
+            default 100 uA LSB this gives a +/-3.2 A range: if the
+            DS400 stall current is higher, fit a smaller shunt and
+            update this AND the LSB together.
+
+    config TREADMILL_INA219_CURRENT_LSB_UA
+        int "INA219 current LSB (microamps)"
+        default 100
+        range 1 10000
+        help
+            Calibration = 40960000 / (shunt_mohm * lsb_ua). Default
+            100 mOhm + 100 uA = 4096, the textbook module value.
+
+    config TREADMILL_MOTOR_OVERCURRENT_MA
+        int "Overcurrent trip threshold (mA)"
+        default 2500
+        range 100 32000
+        help
+            PLACEHOLDER: measure the DS400's running and stall
+            current first. The trip must sit above start-up inrush
+            (absorbed further by the 500 ms confirm window) and
+            below sustained stall current.
+
+    config TREADMILL_MOTOR_OVERCURRENT_CONFIRM_MS
+        int "Overcurrent confirm window (ms)"
+        default 500
+        range 0 5000
+
+    config TREADMILL_MOTOR_STALL_CURRENT_MA
+        int "Stall: current proving the motor strains (mA)"
+        default 500
+        range 0 32000
+
+    config TREADMILL_MOTOR_STALL_CONFIRM_MS
+        int "Stall confirm window (ms)"
+        default 2000
+        range 0 10000
+
+    config TREADMILL_MOTOR_NO_MOTION_CURRENT_MA
+        int "No-motion: below this counts as no current (mA)"
+        default 100
+        range 0 32000
+
+    config TREADMILL_MOTOR_NO_MOTION_CONFIRM_MS
+        int "No-motion confirm window (ms)"
+        default 2000
+        range 0 10000
+
+    config TREADMILL_MOTOR_FAULT_COOLDOWN_MS
+        int "Motor fault latch cooldown (ms)"
+        default 10000
+        range 1000 120000
+        help
+            After a motor fault trip, ON is refused for this long
+            even if the symptom clears, so ON cannot be hammered
+            against a jam. No acknowledge input exists on this
+            hardware, so the latch auto-clears after the window.
+
+    config TREADMILL_HEARTBEAT_GPIO
+        int "Heartbeat output GPIO (external ENA interlock)"
+        default 12
+        range 0 39
+        help
+            10 Hz square wave for the external retriggerable
+            monostable (see docs/MOTOR_FEEDBACK_DESIGN.md). GPIO12
+            is a strapping pin: the interlock circuit must present
+            no pull-up at boot, and the design mandates a 10 kOhm
+            pull-down so boot strapping reads low (3.3 V flash).
+
+    config TREADMILL_HEARTBEAT_PERIOD_MS
+        int "Heartbeat toggle period (ms)"
+        default 100
+        range 10 1000
+
+endmenu
+
     config TREADMILL_VL53_RUNNING_BUDGET_US
         int "VL53 timing budget while running (microseconds)"
         default 50000
