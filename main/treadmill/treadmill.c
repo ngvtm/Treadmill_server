@@ -65,6 +65,19 @@ void treadmill_handle_command(uint8_t cmd)
             return;
         }
 
+        // Phase 1, item 1.1: a latched sensor fault refuses ON. One
+        // deliberate ON with healthy sensors acknowledges the latch
+        // (and proceeds, same pattern as the reed safety-key latch);
+        // while any safety sensor is still blind the latch stays.
+        if (ir_safety_is_fault_latched()) {
+            if (!ir_safety_acknowledge_fault()) {
+                ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, sensor fault latched and array still blind");
+                ir_safety_log_levels();
+                return;
+            }
+            ESP_LOGI(TAG, "SENSOR FAULT acknowledged by ON; proceeding with ON checks");
+        }
+
         if (!ir_safety_is_ready()) {
             ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, VL53 safety not ready");
             ir_safety_log_levels();

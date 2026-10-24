@@ -30,6 +30,10 @@ ir_zone_t ir_safety_get_zone(void);
 ir_zone_t ir_safety_get_cached_zone(void);
 bool ir_safety_is_ready(void);
 bool ir_safety_is_safe(void);
+// Phase 1, item 1.1: sensor-fault latch (see ir_safety_logic.h). A latched
+// fault refuses ON until a deliberate ON with healthy sensors acknowledges it.
+bool ir_safety_is_fault_latched(void);
+bool ir_safety_acknowledge_fault(void);
 void ir_safety_log_levels(void);
 void ir_safety_health_check(void);
 
