@@ -27,6 +27,13 @@
 // without editing code. See Kconfig.projbuild.
 #define IR_HEALTH_PERIOD_MS CONFIG_TREADMILL_IR_HEALTH_PERIOD_MS
 
+static const char *TAG = "GATT";
+
+/* Forward declaration: defined further down, but used by the GATT write
+ * handler above it. Without this, IDF 5.3 (implicit-function-declaration
+ * is -Werror) refuses to build. */
+static uint8_t alert_for_zone(ir_zone_t zone);
+
 typedef enum {
     TREADMILL_ALERT_NONE = 0,
     TREADMILL_ALERT_WARNING_1,

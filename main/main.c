@@ -18,6 +18,15 @@
 
 
 static const char *tag = "NimBLE_BLE_PRPH";
+
+/* NimBLE in ESP-IDF 5.3 no longer names the advertising filter policies
+ * (ble_gap_adv_params.filter_policy is a plain uint8_t). Values are from
+ * Bluetooth Core Spec Vol 4 Part E, HCI LE Set Advertising Parameters:
+ * 0 = scan any / connect any, 1 = scan whitelist / connect any,
+ * 2 = scan any / connect whitelist, 3 = scan whitelist / connect whitelist.
+ * The bonding code below needs policy 2: anyone may scan, but only the
+ * bonded smartkey in the whitelist may connect. */
+#define BLE_GAP_ADV_FILTER_POLICY_SCAN_ANY_CONN_WL 2
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
 static uint8_t own_addr_type;
 
