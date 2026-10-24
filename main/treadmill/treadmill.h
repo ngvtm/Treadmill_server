@@ -26,6 +26,8 @@ bool    treadmill_is_running(void);
 uint8_t treadmill_get_speed(void);
 uint8_t treadmill_get_requested_speed(void);
 bool    treadmill_is_safety_limited(void);
+bool    treadmill_is_safety_key_tripped(void);
+bool    treadmill_is_safety_key_present(void);
 
 #ifdef __cplusplus
 }

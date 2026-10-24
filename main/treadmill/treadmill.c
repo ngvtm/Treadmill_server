@@ -1,6 +1,7 @@
 #include "treadmill.h"
 #include "motor/motor.h"
 #include "ir_safety/ir_safety.h"
+#include "safety_key/safety_key.h"
 #include "esp_log.h"
 
 #define TAG "TREADMILL"
@@ -31,10 +32,19 @@ static const char *zone_to_str(ir_zone_t zone)
     }
 }
 
+/* Reed safety key pulled (fall): cut the motor immediately through
+ * the hard-cutoff path, not the gentle controlled stop. The trip is
+ * latched in the safety_key module until acknowledged via ON. */
+static void on_safety_key_trip(void)
+{
+    treadmill_hard_cutoff();
+}
+
 void treadmill_init(void)
 {
     treadmill_reset_stopped_state();
     motor_init();
+    safety_key_set_trip_callback(on_safety_key_trip);
     ESP_LOGI(TAG, "Initialized: state=OFF requested_speed=%d", s_requested_speed);
 }
 
@@ -42,6 +52,19 @@ void treadmill_handle_command(uint8_t cmd)
 {
     switch (cmd) {
     case TREADMILL_CMD_ON: {
+        /* Breakaway safety key gate (checked before the VL53 gate):
+         * - tripped before: this deliberate ON acts as the
+         *   acknowledge, but only clears if the puck is docked again;
+         * - puck not docked at all: refuse to start. */
+        if (safety_key_is_tripped() && !safety_key_acknowledge()) {
+            ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, safety key tripped and not re-docked");
+            return;
+        }
+        if (!safety_key_is_present()) {
+            ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, safety key not docked");
+            return;
+        }
+
         if (!ir_safety_is_ready()) {
             ESP_LOGE(TAG, "SAFETY BLOCK: reject ON, VL53 safety not ready");
             ir_safety_log_levels();
@@ -196,4 +219,14 @@ uint8_t treadmill_get_requested_speed(void)
 bool treadmill_is_safety_limited(void)
 {
     return s_safety_limited;
+}
+
+bool treadmill_is_safety_key_tripped(void)
+{
+    return safety_key_is_tripped();
+}
+
+bool treadmill_is_safety_key_present(void)
+{
+    return safety_key_is_present();
 }

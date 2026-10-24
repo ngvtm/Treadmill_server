@@ -105,3 +105,34 @@ menu "Treadmill Configuration"
             bench — change here instead of editing ir_safety.cpp.
 
 endmenu
+
+menu "Treadmill Safety Key"
+
+    config TREADMILL_SAFETY_KEY_GPIO
+        int "Reed safety-key GPIO"
+        default 23
+        help
+            GPIO reading the reed contact of the breakaway safety
+            key. Contact to GND, internal pull-up used: magnet puck
+            docked = contact closed = pin low.
+
+    config TREADMILL_SAFETY_KEY_PRESENT_STABLE_MS
+        int "Key-present confirm time (ms)"
+        default 100
+        range 10 2000
+        help
+            Contact must stay closed this long before the key counts
+            as docked (slow to trust).
+
+    config TREADMILL_SAFETY_KEY_ABSENT_CONFIRM_MS
+        int "Key-lost confirm time (ms)"
+        default 30
+        range 5 500
+        help
+            Contact must stay open this long before a trip latches:
+            long enough to reject contact bounce and vibration,
+            short enough to stay inside the stop-latency budget
+            (fast to trip).
+
+endmenu
+
