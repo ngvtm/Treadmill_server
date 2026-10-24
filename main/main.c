@@ -8,6 +8,7 @@
 #include "services/gap/ble_svc_gap.h"
 #include "bleprph.h"
 #include "ir_safety/ir_safety.h"
+#include "safety_key/safety_key.h"
 #include "treadmill/treadmill.h"
 
 
@@ -205,6 +206,7 @@ app_main(void)
     ESP_ERROR_CHECK(ret);
 
     ir_safety_init();
+    safety_key_init();
     treadmill_init();
 
     ret = nimble_port_init();

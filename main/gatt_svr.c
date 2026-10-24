@@ -28,6 +28,7 @@ typedef enum {
     TREADMILL_ALERT_DANGER,
     TREADMILL_ALERT_NO_PERSON,
     TREADMILL_ALERT_CMD_REJECTED,
+    TREADMILL_ALERT_SAFETY_KEY_OUT,  /* reed breakaway key pulled / not docked (=6) */
 } treadmill_alert_t;
 
 typedef struct __attribute__((packed)) {
@@ -159,8 +160,14 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
                 ir_zone_t zone = ir_safety_get_cached_zone();
                 if (gatt_svr_chr_val == TREADMILL_CMD_ON &&
                     !treadmill_is_running()) {
-                    gatt_svr_notify_status(TREADMILL_ALERT_CMD_REJECTED,
-                                           zone);
+                    /* Name the real blocker: a pulled/missing safety
+                     * key is a different fix than a VL53 rejection. */
+                    uint8_t alert =
+                        (treadmill_is_safety_key_tripped() ||
+                         !treadmill_is_safety_key_present())
+                            ? TREADMILL_ALERT_SAFETY_KEY_OUT
+                            : TREADMILL_ALERT_CMD_REJECTED;
+                    gatt_svr_notify_status(alert, zone);
                 } else {
                     gatt_svr_notify_status(TREADMILL_ALERT_NONE,
                                            zone);
@@ -290,9 +297,20 @@ static void safety_monitor_task(void *arg)
 {
     ir_zone_t last_zone = IR_ZONE_NONE;
     bool have_last_zone = false;
+    bool last_key_tripped = false;
     TickType_t last_health_tick = 0;
 
     while (1) {
+        /* Reed safety key trip: the motor is already hard-cut by
+         * the trip callback; here we only owe the smartkey the alert
+         * the moment the latch flips. */
+        bool key_tripped = treadmill_is_safety_key_tripped();
+        if (key_tripped && !last_key_tripped) {
+            gatt_svr_notify_status(TREADMILL_ALERT_SAFETY_KEY_OUT,
+                                   ir_safety_get_cached_zone());
+        }
+        last_key_tripped = key_tripped;
+
         bool running = treadmill_is_running();
         ir_zone_t zone;
 

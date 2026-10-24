@@ -11,11 +11,13 @@ idf_component_register(
         "treadmill/treadmill.c"     # <-- thêm dòng này
         "motor/motor.c"
         "ir_safety/ir_safety.cpp"
+        "safety_key/safety_key.c"
     INCLUDE_DIRS
         "."
         "treadmill"                 # <-- thêm dòng này để #include "treadmill.h" hoạt động
         "motor"
         "ir_safety"
+        "safety_key"
     REQUIRES
         driver
         esp_timer
