@@ -13,6 +13,7 @@
 #include "bleprph.h"
 #include "services/ans/ble_svc_ans.h"
 #include "treadmill/treadmill.h"
+#include "motor_feedback/motor_feedback.h"
 #include "ir_safety/ir_safety.h"
 
 #define MAX_NOTIFY 5
@@ -32,6 +33,7 @@ typedef enum {
     TREADMILL_ALERT_NO_PERSON,
     TREADMILL_ALERT_CMD_REJECTED,
     TREADMILL_ALERT_SAFETY_KEY_OUT,  /* reed breakaway key pulled / not docked (=6) */
+    TREADMILL_ALERT_MOTOR_FAULT,     /* = 7: stall / overcurrent / no-motion (GĐ2) */
 } treadmill_alert_t;
 
 typedef struct __attribute__((packed)) {
@@ -166,12 +168,15 @@ gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle,
                 if (gatt_svr_chr_val == TREADMILL_CMD_ON &&
                     !treadmill_is_running()) {
                     /* Name the real blocker: a pulled/missing safety
-                     * key is a different fix than a VL53 rejection. */
+                     * key is a different fix than a VL53 rejection,
+                     * and a motor fault is different again. */
                     uint8_t alert =
                         (treadmill_is_safety_key_tripped() ||
                          !treadmill_is_safety_key_present())
                             ? TREADMILL_ALERT_SAFETY_KEY_OUT
-                            : TREADMILL_ALERT_CMD_REJECTED;
+                            : treadmill_is_motor_fault()
+                                ? TREADMILL_ALERT_MOTOR_FAULT
+                                : TREADMILL_ALERT_CMD_REJECTED;
                     gatt_svr_notify_status(alert, zone);
                 } else {
                     gatt_svr_notify_status(TREADMILL_ALERT_NONE,
@@ -304,6 +309,7 @@ static void safety_monitor_task(void *arg)
     bool have_last_zone = false;
     bool last_key_tripped = false;
     bool last_fault_latched = false;
+    motor_fault_kind_t last_motor_fault = MOTOR_FAULT_NONE;
     TickType_t last_health_tick = 0;
 
     // Phase 1, item 1.3: this task is watchdog-supervised (see app_main).
@@ -322,6 +328,27 @@ static void safety_monitor_task(void *arg)
         last_key_tripped = key_tripped;
 
         bool running = treadmill_is_running();
+
+        // GĐ2: motor feedback is polled on every monitor iteration
+        // (running or stopped — a short draws current with no
+        // command). On a rising edge, stop hard and name the fault:
+        // the smartkey shows MOTOR_FAULT instead of a generic stop,
+        // and the ON gate refuses until the cooldown expires.
+        motor_fault_kind_t motor_fault = motor_feedback_poll();
+        if (motor_fault != MOTOR_FAULT_NONE &&
+            motor_fault != last_motor_fault) {
+            ESP_LOGE(TAG, "MOTOR FAULT kind=%d: hard cutoff (belt=%" PRIi32
+                     " mm/s current=%" PRIi32 " mA)",
+                     (int)motor_fault,
+                     motor_feedback_get_belt_speed_mm_s(),
+                     motor_feedback_get_current_ma());
+            if (running) {
+                treadmill_hard_cutoff();
+            }
+            gatt_svr_notify_status(TREADMILL_ALERT_MOTOR_FAULT,
+                                   ir_safety_get_cached_zone());
+        }
+        last_motor_fault = motor_fault;
         ir_zone_t zone;
 
         if (running) {

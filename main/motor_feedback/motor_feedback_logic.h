@@ -70,7 +70,7 @@ typedef struct {
     motor_fault_kind_t suspect_kind;
 } motor_feedback_state_t;
 
-static inline void motor_feedback_init(motor_feedback_state_t *st)
+static inline void motor_feedback_state_init(motor_feedback_state_t *st)
 {
     st->latched = MOTOR_FAULT_NONE;
     st->latched_until_ms = 0;

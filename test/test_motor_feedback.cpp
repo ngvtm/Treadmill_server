@@ -21,7 +21,7 @@ int main(void)
 
     // 1. Healthy running: encoder moving, sane current -> no fault.
     {
-        motor_feedback_state_t st; motor_feedback_init(&st);
+        motor_feedback_state_t st; motor_feedback_state_init(&st);
         motor_feedback_cfg_t cfg = motor_feedback_default_cfg();
         for (uint32_t t = 0; t <= 5000; t += 100) {
             CHECK(motor_feedback_update(&st, &cfg, true, 3, 5, 800, t)
@@ -33,7 +33,7 @@ int main(void)
     //    only after the full 2 s window; a single moving window
     //    resets the suspect.
     {
-        motor_feedback_state_t st; motor_feedback_init(&st);
+        motor_feedback_state_t st; motor_feedback_state_init(&st);
         motor_feedback_cfg_t cfg = motor_feedback_default_cfg();
         CHECK(motor_feedback_update(&st, &cfg, true, 3, 0, 900, 0)
               == MOTOR_FAULT_NONE);
@@ -58,7 +58,7 @@ int main(void)
 
     // 3. Overcurrent: 500 ms window, checked even while stopped.
     {
-        motor_feedback_state_t st; motor_feedback_init(&st);
+        motor_feedback_state_t st; motor_feedback_state_init(&st);
         motor_feedback_cfg_t cfg = motor_feedback_default_cfg();
         CHECK(motor_feedback_update(&st, &cfg, false, 0, 0, 3000, 0)
               == MOTOR_FAULT_NONE);
@@ -70,7 +70,7 @@ int main(void)
 
     // 4. No-motion: commanded, silent encoder, no current.
     {
-        motor_feedback_state_t st; motor_feedback_init(&st);
+        motor_feedback_state_t st; motor_feedback_state_init(&st);
         motor_feedback_cfg_t cfg = motor_feedback_default_cfg();
         CHECK(motor_feedback_update(&st, &cfg, true, 3, 0, 50, 0)
               == MOTOR_FAULT_NONE);
@@ -80,7 +80,7 @@ int main(void)
 
     // 5. Stopped + silent encoder + no current is healthy (not a fault).
     {
-        motor_feedback_state_t st; motor_feedback_init(&st);
+        motor_feedback_state_t st; motor_feedback_state_init(&st);
         motor_feedback_cfg_t cfg = motor_feedback_default_cfg();
         for (uint32_t t = 0; t <= 5000; t += 100) {
             CHECK(motor_feedback_update(&st, &cfg, false, 0, 0, 0, t)
@@ -90,7 +90,7 @@ int main(void)
 
     // 6. Inrush below the confirm window does not trip.
     {
-        motor_feedback_state_t st; motor_feedback_init(&st);
+        motor_feedback_state_t st; motor_feedback_state_init(&st);
         motor_feedback_cfg_t cfg = motor_feedback_default_cfg();
         CHECK(motor_feedback_update(&st, &cfg, true, 3, 5, 4000, 0)
               == MOTOR_FAULT_NONE);
