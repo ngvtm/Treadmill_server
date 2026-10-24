@@ -31,21 +31,12 @@
 
 <h1>Thiết kế lắp đặt cụm server lên treadmill</h1>
 <p class="sub">Cụm server: board ESP32-WROOM-32 + driver L298N + 8 cảm biến VL53L0X + dock reed + encoder + INA219.
-Bản vẽ bằng SVG (không phải ảnh AI). <b>Cập nhật 2026-10-24 theo ảnh máy thật anh gửi: treadmill trẻ em cỡ nhỏ</b> — khung vàng, 2 tay vịn xanh cong, thanh đỏ trước + console vàng tròn, băng hẹp. Hình không đúng tỉ lệ thực; kích thước băng trong code (800×650&nbsp;mm) <b>chưa chắc đúng máy này</b> — xem cảnh báo dưới đây.</p>
+Bản vẽ bằng SVG (không phải ảnh AI). <b>Cập nhật 2026-10-24 theo ảnh máy thật anh gửi: treadmill trẻ em cỡ nhỏ</b> — khung vàng, 2 tay vịn xanh cong, thanh đỏ trước + console vàng tròn, băng hẹp. Hình không đúng tỉ lệ thực; kích thước băng 800×650&nbsp;mm trong code đã được anh xác nhận đúng.</p>
 
 <p><span class="tag tag-code">TỪ CODE</span> = vị trí/vai trò đã ghi trong code hoặc tài liệu thiết kế.
 <span class="tag tag-prop">ĐỀ XUẤT</span> = code không chỉ định — cần anh xác nhận theo khung máy thật trước khi khoan/bắt vít.</p>
 
-<div class="warn"><b>⚠ CẢNH BÁO — hình học trong code chưa khớp máy thật, đừng khoan ray vội:</b>
-code giả định băng <b>rộng 650&nbsp;mm</b>, ngưỡng phát hiện 700&nbsp;mm và yêu cầu <b>phía xa tia quét thoáng 700&nbsp;mm</b>
-(<code>ir_safety.cpp</code>). Ảnh máy trẻ em cho thấy băng hẹp hơn nhiều, lại có <b>2 tay vịn xanh cong nhô cao 2 bên</b>:
-nếu tia quét ngang ở độ cao vướng tay vịn đối diện, cảm biến sẽ "thấy" vĩnh viễn → zone kẹt, máy không ON được.
-<b>Trước khi lắp ray, anh đo giúp 4 số:</b> (1) chiều dài × chiều rộng băng, (2) chiều rộng phủ bì khung,
-(3) chiều cao tay vịn xanh tại vị trí mỗi cảm biến, (4) chiều cao từ mặt băng lên mép trên dầm vàng 2 bên.
-Từ số đo đó em sẽ chốt lại: ngưỡng phát hiện mới theo công thức <i>ngưỡng ≈ chiều rộng băng × 1,024 + 35&nbsp;mm biên</i>
-(chỉnh bằng menuconfig <code>TREADMILL_VL53_DETECT_MAX_MM</code>, không sửa code) và độ cao gắn ray sao cho tia quét
-<b>đi trên dầm vàng nhưng vẫn cắt chân/người</b> của trẻ. Nếu băng chỉ ~350&nbsp;mm thì ngưỡng khoảng ~400&nbsp;mm
-và yêu cầu thoáng phía xa cũng chỉ còn ~450&nbsp;mm — nhưng con số cuối phải chờ số đo thật, không đoán từ ảnh. <b>Cập nhật:</b> anh đã gửi kích thước phủ bì <b>80×65×78&nbsp;cm</b> (em hiểu đơn vị là cm theo chuẩn bảng thông số sản phẩm) — con số 65&nbsp;cm này trùng với 650&nbsp;mm trong code, nhưng đó là rộng <b>phủ bì</b> cả khung, không phải rộng băng; rộng băng thật vẫn cần đo riêng (chỉ đo mặt băng chạy, mép này sang mép kia).</div>
+<div class="note"><b>Đã xác nhận 2026-10-24:</b> băng rộng đúng <b>650&nbsp;mm</b> (anh xác nhận) — khớp hình học trong code (tia xiên tới mép xa 666&nbsp;mm, ngưỡng 700&nbsp;mm). Khoảng cách giữa các cảm biến dọc ray và góc chếch so với mặt băng là <b>do anh tính sẵn, không thay đổi trong code</b> — bản vẽ này chỉ thể hiện lại, không sửa số liệu nào. Kích thước phủ bì máy: 800×650×780&nbsp;mm.</div>
 
 <h2>1. Sơ đồ nhìn từ trên xuống</h2>
 <p>Trước ở phía trên hình (đầu máy, bảng điều khiển), sau ở phía dưới (con lăn sau).
@@ -157,7 +148,7 @@ và yêu cầu thoáng phía xa cũng chỉ còn ~450&nbsp;mm — nhưng con s�
   <text x="318" y="152" text-anchor="middle" font-size="9" font-weight="700">ENC</text>
   <text x="20" y="300" font-size="12">Encoder: trục roller trước <tspan fill="#7a5b00">(đề xuất)</tspan> — A GPIO4 / B GPIO33</text>
   <!-- width warning -->
-  <text x="458" y="566" text-anchor="middle" font-size="12" font-weight="700" fill="#c00">Phủ bì máy: 800×650×780 mm (theo thông số anh gửi) — chiều rộng BĂNG vẫn cần đo riêng (xem cảnh báo ở đầu file)</text>
+  <text x="458" y="566" text-anchor="middle" font-size="12" font-weight="700" fill="#c00">Băng rộng 650 mm (anh xác nhận) — khớp hình học trong code; phủ bì máy 800×650×780 mm</text>
   <!-- direction -->
   <text x="460" y="24" text-anchor="middle" font-size="13" font-weight="700">▲ TRƯỚC (đầu máy)</text>
   <text x="460" y="600" text-anchor="middle" font-size="13" font-weight="700">▼ SAU (con lăn sau)</text>
@@ -196,7 +187,7 @@ góc tia xem ở chi tiết A (mặt cắt ngang một cảm biến, nhìn từ 
   <!-- deck + belt -->
   <rect x="100" y="282" width="700" height="18" fill="#cccccc" stroke="#888"/>
   <line x1="100" y1="282" x2="800" y2="282" stroke="#333" stroke-width="2.5"/>
-  <text x="450" y="272" text-anchor="middle" font-size="12">mặt băng (phủ bì máy 800×650×780 mm; rộng băng đo riêng — code giả định 800×650 mm)</text>
+  <text x="450" y="272" text-anchor="middle" font-size="12">mặt băng (800 mm dài × 650 mm rộng — anh xác nhận, khớp code)</text>
   <!-- rollers -->
   <circle cx="160" cy="300" r="22" fill="#fff" stroke="#333" stroke-width="1.5"/>
   <circle cx="740" cy="300" r="22" fill="#fff" stroke="#333" stroke-width="1.5"/>
@@ -378,10 +369,7 @@ song song đó, GPIO23 đọc trạng thái reed qua đường B để firmware 
   (77,5° so với mặt băng), trục quang +12,5° so với phương ngang, cone ±12,5°.</li>
   <li><span class="tag tag-code">TỪ CODE</span> Ngưỡng phát hiện 700&nbsp;mm (mặc định menuconfig) đủ phủ hết chiều rộng băng 650&nbsp;mm
   (tia xiên tới mép xa là 666&nbsp;mm, biên 34&nbsp;mm).</li>
-  <li><b>Riêng máy trẻ em này:</b> ngưỡng 700&nbsp;mm chỉ đúng khi băng rộng đúng 650&nbsp;mm. Đo xong chiều rộng thật
-  thì đặt lại ngưỡng theo công thức trên (menuconfig, không sửa code), rồi <b>chạy test băng trống</b>:
-  mọi cảm biến phải đọc &gt; ngưỡng mới hoặc status 4. Cảm biến nào kẹt dưới ngưỡng → tia đang vướng tay vịn
-  hoặc vật gần: nâng ray lên hoặc dời ray ra ngoài tay vịn, rồi test lại.</li>
+  <li><b>Đã xác nhận:</b> băng rộng đúng 650&nbsp;mm nên ngưỡng 700&nbsp;mm giữ nguyên, không chỉnh. Test băng trống vẫn bắt buộc: mọi cảm biến phải đọc &gt;&nbsp;700&nbsp;mm hoặc status 4; cảm biến nào kẹt dưới ngưỡng → tia đang vướng tay vịn hoặc vật gần: kiểm tra lại góc/đế và vị trí ray theo số liệu anh đã tính, rồi test lại.</li>
   <li><span class="tag tag-code">TỪ CODE</span> Không có vật cố định nào trong vòng 700&nbsp;mm tính từ cảm biến — nếu không,
   cảm biến đó "thấy" vĩnh viễn và zone kẹt (cảm biến DANGER kẹt thì máy không bao giờ ON được).
   Nếu gắn dải mục tiêu nền (baseline strip) thì đặt ở ≥&nbsp;780&nbsp;mm ngang (tia xiên ≥&nbsp;799&nbsp;mm).</li>
@@ -390,9 +378,7 @@ song song đó, GPIO23 đọc trạng thái reed qua đường B để firmware 
   <li>Đi dây ray trong nẹp/ghen riêng, <b>không bó chung dây nguồn motor</b> (nhiễu) và không để dây thòng xuống băng.</li>
   <li>Mặt kính cảm biến phải hở, không bị nẹp, dây hay vỏ hộp che; lau bụi định kỳ — bụi làm cảm biến mù dần
   (firmware sẽ latch lỗi sau 5 snapshot mù, đúng thiết kế fail-closed).</li>
-  <li>Chiều cao gắn: code không ghi số. Đề xuất đặt thấp sao cho tia thấp nhất song song mặt băng như hình 2,
-  rồi chốt bằng bench: hạ dần cảm biến, xem log khoảng cách thô (<code>IR_RAW_DISTANCE_LOG</code>) ở các tư thế
-  đứng giữa băng, lệch trái/phải sát mép, chân trước/chân sau (theo <code>CALIBRATION.md</code>).</li>
+  <li>Chiều cao gắn và khoảng cách cảm biến: theo số liệu anh đã tính (góc chếch như hình 2) — bản vẽ không tự đặt số mới; bench chỉ để <b>kiểm chứng</b> (xem log khoảng cách thô <code>IR_RAW_DISTANCE_LOG</code> ở các tư thế đứng giữa băng, lệch trái/phải sát mép, chân trước/chân sau theo <code>CALIBRATION.md</code>), không để tính lại.</li>
 </ul>
 
 <h3>Dock reed</h3>
@@ -441,13 +427,7 @@ không test trên trẻ; người lớn chỉ tự test giật puck ở tốc đ
   <tr><td>Ray dọc băng, quét ngang; đế 77,5°, trục +12,5°, cone ±12,5°; băng 800×650 mm; ngưỡng 700 mm; vật cản ≥780 mm; băng trống &gt;700 mm hoặc status 4</td><td>Code: ghi chú geometry trong <code>ir_safety.cpp</code></td></tr>
   <tr><td>ENA GPIO5, IN1 GPIO18, IN2 GPIO19; encoder A GPIO4/B GPIO33; INA219 0x40 nối tiếp +24 V; heartbeat GPIO12 + 74HC123 ~250 ms + AND; pull-down 10 kΩ</td><td>Tài liệu: <code>MOTOR_FEEDBACK_DESIGN.md</code></td></tr>
   <tr><td>Dock reed ở tay vịn/bảng điều khiển phía trước, xa motor DC; đường B GPIO23→GND + tụ 100 nF; đường A nối tiếp PWM→ENA</td><td>Tài liệu: <code>REED_SAFETY_KEY_DESIGN.md</code>, <code>REED_HARDWARE_PLAN.md</code></td></tr>
-  <tr><td><b>Cần anh xác nhận theo khung máy thật:</b> ray cảm biến bên trái hay phải; vị trí hộp điều khiển;
-  encoder gắn roller trước hay sau; chiều cao gắn cảm biến; vị trí chính xác của dock trên tay vịn;
-  đường đi dây cụ thể; vị trí nguồn 24 V; <tr><td><b>Máy thật:</b> treadmill trẻ em cỡ nhỏ — khung vàng, tay vịn xanh cong 2 bên, thanh đỏ trước,
-  console vàng tròn ở giữa thanh trước, băng hẹp, chân đen 4 góc</td><td>Ảnh anh gửi 2026-10-24 (3 ảnh máy)</td></tr>
-  <tr><td><b>Kích thước phủ bì:</b> 80×65×78&nbsp;cm (dài × rộng × cao)</td><td>Thông số anh gửi 2026-10-24</td></tr>
-  <tr><td><b>Đang chờ anh đo:</b> rộng băng (mặt chạy, mép-mép); cao tay vịn xanh tại vị trí cảm biến;
-  cao dầm vàng 2 bên; ray cảm biến đặt bên trái hay phải; hộp điều khiển đặt đâu; nguồn 24&nbsp;V đặt đâu</td><td>—</td></tr>
+  <tr><td><b>Cần anh xác nhận theo khung máy thật:</b> ray cảm biến bên trái hay phải; vị trí hộp điều khiển; encoder gắn roller trước hay sau; vị trí chính xác của dock trên tay vịn; đường đi dây cụ thể; vị trí nguồn 24&nbsp;V (băng 800×650&nbsp;mm đã xác nhận; khoảng cách cảm biến + góc chếch do anh tính — không thay đổi)</td><td>—</td></tr>
   kích thước băng thực tế (nếu khác 800×650 mm thì tỉ lệ hình này chỉ còn minh hoạ)</td><td>—</td></tr>
 </table>
 
